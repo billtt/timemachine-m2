@@ -1,0 +1,221 @@
+import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+import { 
+  ApiResponse, 
+  LoginRequest, 
+  RegisterRequest, 
+  AuthResponse, 
+  Slice, 
+  CreateSliceRequest, 
+  UpdateSliceRequest, 
+  SliceFiltersParams, 
+  SearchParams, 
+  SliceStats, 
+  SyncRequest, 
+  SyncResponse 
+} from '../types';
+import { STORAGE_KEYS } from '../types';
+import toast from 'react-hot-toast';
+
+class ApiService {
+  private api: AxiosInstance;
+  private baseURL: string;
+
+  constructor() {
+    this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    
+    this.api = axios.create({
+      baseURL: this.baseURL,
+      timeout: 10000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    this.setupInterceptors();
+  }
+
+  private setupInterceptors() {
+    // Request interceptor to add auth token
+    this.api.interceptors.request.use(
+      (config) => {
+        const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    // Response interceptor for error handling
+    this.api.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          this.handleAuthError();
+        } else if (error.response?.status >= 500) {
+          toast.error('Server error. Please try again later.');
+        } else if (error.code === 'ECONNABORTED') {
+          toast.error('Request timeout. Please check your connection.');
+        } else if (!navigator.onLine) {
+          toast.error('No internet connection');
+        }
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  private handleAuthError() {
+    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+    window.location.href = '/login';
+  }
+
+  private async request<T>(config: AxiosRequestConfig): Promise<T> {
+    try {
+      const response = await this.api.request<ApiResponse<T>>(config);
+      return response.data.data as T;
+    } catch (error: any) {
+      const message = error.response?.data?.error || error.message || 'An error occurred';
+      throw new Error(message);
+    }
+  }
+
+  // Auth endpoints
+  async login(credentials: LoginRequest): Promise<AuthResponse> {
+    return this.request<AuthResponse>({
+      method: 'POST',
+      url: '/auth/login',
+      data: credentials,
+    });
+  }
+
+  async register(userData: RegisterRequest): Promise<AuthResponse> {
+    return this.request<AuthResponse>({
+      method: 'POST',
+      url: '/auth/register',
+      data: userData,
+    });
+  }
+
+  async getProfile(): Promise<any> {
+    return this.request<any>({
+      method: 'GET',
+      url: '/auth/profile',
+    });
+  }
+
+  async updateProfile(data: { email?: string }): Promise<any> {
+    return this.request<any>({
+      method: 'PUT',
+      url: '/auth/profile',
+      data,
+    });
+  }
+
+  async changePassword(data: { currentPassword: string; newPassword: string }): Promise<void> {
+    return this.request<void>({
+      method: 'PUT',
+      url: '/auth/password',
+      data,
+    });
+  }
+
+  // Slice endpoints
+  async createSlice(data: CreateSliceRequest): Promise<{ slice: Slice }> {
+    return this.request<{ slice: Slice }>({
+      method: 'POST',
+      url: '/slices',
+      data,
+    });
+  }
+
+  async getSlices(params?: SliceFiltersParams): Promise<{ slices: Slice[]; pagination: any }> {
+    return this.request<{ slices: Slice[]; pagination: any }>({
+      method: 'GET',
+      url: '/slices',
+      params,
+    });
+  }
+
+  async getSlice(id: string): Promise<{ slice: Slice }> {
+    return this.request<{ slice: Slice }>({
+      method: 'GET',
+      url: `/slices/${id}`,
+    });
+  }
+
+  async updateSlice(id: string, data: UpdateSliceRequest): Promise<{ slice: Slice }> {
+    return this.request<{ slice: Slice }>({
+      method: 'PUT',
+      url: `/slices/${id}`,
+      data,
+    });
+  }
+
+  async deleteSlice(id: string): Promise<void> {
+    return this.request<void>({
+      method: 'DELETE',
+      url: `/slices/${id}`,
+    });
+  }
+
+  async searchSlices(params: SearchParams): Promise<{ slices: Slice[]; total: number; pagination: any }> {
+    return this.request<{ slices: Slice[]; total: number; pagination: any }>({
+      method: 'GET',
+      url: '/slices/search',
+      params,
+    });
+  }
+
+  async getSliceStats(params?: { startDate?: string; endDate?: string }): Promise<SliceStats> {
+    return this.request<SliceStats>({
+      method: 'GET',
+      url: '/slices/stats',
+      params,
+    });
+  }
+
+  // Sync endpoints
+  async syncSlices(data: SyncRequest): Promise<SyncResponse> {
+    return this.request<SyncResponse>({
+      method: 'POST',
+      url: '/sync',
+      data,
+    });
+  }
+
+  async getLastSyncTime(): Promise<{ lastSyncTime: Date | null }> {
+    return this.request<{ lastSyncTime: Date | null }>({
+      method: 'GET',
+      url: '/sync/last-sync',
+    });
+  }
+
+  async getSlicesSince(timestamp: string): Promise<{ slices: Slice[]; count: number }> {
+    return this.request<{ slices: Slice[]; count: number }>({
+      method: 'GET',
+      url: '/sync/since',
+      params: { timestamp },
+    });
+  }
+
+  // Health check
+  async healthCheck(): Promise<{ message: string; timestamp: string }> {
+    return this.request<{ message: string; timestamp: string }>({
+      method: 'GET',
+      url: '/health',
+    });
+  }
+
+  // Utility methods
+  isOnline(): boolean {
+    return navigator.onLine;
+  }
+
+  getBaseURL(): string {
+    return this.baseURL;
+  }
+}
+
+export const apiService = new ApiService();
+export default apiService;

@@ -1,0 +1,148 @@
+import { Request, Response } from 'express';
+import { User } from '../models/User';
+import { generateToken } from '../utils/jwt';
+import { asyncHandler, createError } from '../middleware/errorHandler';
+import { AuthenticatedRequest } from '../middleware/auth';
+import { LoginData, RegisterData } from '../types/validation';
+
+export const register = asyncHandler(async (req: Request, res: Response) => {
+  const { username, password, email }: RegisterData = req.body;
+
+  // Check if user already exists
+  const existingUser = await User.findOne({ name: username });
+  if (existingUser) {
+    throw createError('Username already exists', 400);
+  }
+
+  // Create new user
+  const user = new User({
+    name: username,
+    password,
+    email: email || undefined
+  });
+
+  await user.save();
+
+  // Generate token
+  const token = generateToken(user);
+
+  res.status(201).json({
+    success: true,
+    data: {
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        createdAt: user.createdAt
+      },
+      token
+    },
+    message: 'User registered successfully'
+  });
+});
+
+export const login = asyncHandler(async (req: Request, res: Response) => {
+  const { username, password }: LoginData = req.body;
+
+  // Find user and include password for comparison
+  const user = await User.findOne({ name: username }).select('+password');
+  if (!user) {
+    throw createError('Invalid credentials', 401);
+  }
+
+  // Check password
+  const isPasswordValid = await user.comparePassword(password);
+  if (!isPasswordValid) {
+    throw createError('Invalid credentials', 401);
+  }
+
+  // Generate token
+  const token = generateToken(user);
+
+  res.json({
+    success: true,
+    data: {
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        createdAt: user.createdAt
+      },
+      token
+    },
+    message: 'Login successful'
+  });
+});
+
+export const getProfile = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const user = await User.findById(req.user.id);
+  if (!user) {
+    throw createError('User not found', 404);
+  }
+
+  res.json({
+    success: true,
+    data: {
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      }
+    }
+  });
+});
+
+export const updateProfile = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { email } = req.body;
+  
+  const user = await User.findById(req.user.id);
+  if (!user) {
+    throw createError('User not found', 404);
+  }
+
+  if (email !== undefined) {
+    user.email = email;
+  }
+
+  await user.save();
+
+  res.json({
+    success: true,
+    data: {
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      }
+    },
+    message: 'Profile updated successfully'
+  });
+});
+
+export const changePassword = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { currentPassword, newPassword } = req.body;
+
+  const user = await User.findById(req.user.id).select('+password');
+  if (!user) {
+    throw createError('User not found', 404);
+  }
+
+  // Verify current password
+  const isCurrentPasswordValid = await user.comparePassword(currentPassword);
+  if (!isCurrentPasswordValid) {
+    throw createError('Current password is incorrect', 400);
+  }
+
+  // Update password
+  user.password = newPassword;
+  await user.save();
+
+  res.json({
+    success: true,
+    message: 'Password changed successfully'
+  });
+});
