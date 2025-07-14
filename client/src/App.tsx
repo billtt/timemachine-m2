@@ -12,7 +12,6 @@ import HomePage from './pages/HomePage';
 import SearchPage from './pages/SearchPage';
 import StatsPage from './pages/StatsPage';
 import SettingsPage from './pages/SettingsPage';
-import { registerSW } from 'virtual:pwa-register';
 
 // Create QueryClient instance
 const queryClient = new QueryClient({
@@ -74,20 +73,6 @@ function App() {
     }
   }, [setTheme]);
 
-  useEffect(() => {
-    // Register service worker
-    if ('serviceWorker' in navigator) {
-      const updateSW = registerSW({
-        onNeedRefresh() {
-          // Show update available notification
-          console.log('New version available');
-        },
-        onOfflineReady() {
-          console.log('App ready to work offline');
-        },
-      });
-    }
-  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

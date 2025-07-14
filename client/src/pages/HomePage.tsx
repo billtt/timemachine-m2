@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Calendar, Filter, RefreshCw } from 'lucide-react';
-import { format, startOfDay, endOfDay } from 'date-fns';
+import { Plus, Calendar, Filter, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { format, startOfDay, endOfDay, addDays, subDays } from 'date-fns';
 import { useUIStore } from '../store/uiStore';
 import { useOfflineStore } from '../store/offlineStore';
+import { useSliceStore } from '../store/sliceStore';
 import { Slice, SliceFormData } from '../types';
 import apiService from '../services/api';
 import offlineStorage from '../services/offline';
@@ -21,7 +22,14 @@ const HomePage: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   
   const { privacyMode, isOnline } = useUIStore();
-  const { addOfflineSlice, syncPendingSlices } = useOfflineStore();
+  const { addOfflineSlice, syncPendingSlices, loadPendingOperations, processOperations } = useOfflineStore();
+  const { 
+    slices, 
+    setSlices, 
+    addSliceOptimistically, 
+    updateSliceOptimistically, 
+    deleteSliceOptimistically 
+  } = useSliceStore();
   const queryClient = useQueryClient();
 
   // Fetch slices for selected date
@@ -50,65 +58,54 @@ const HomePage: React.FC = () => {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  // Create slice mutation
+  // Update slice store when data changes
+  useEffect(() => {
+    if (slicesData?.slices) {
+      setSlices(slicesData.slices);
+    }
+  }, [slicesData, setSlices]);
+
+  // Load pending operations on mount
+  useEffect(() => {
+    loadPendingOperations();
+  }, [loadPendingOperations]);
+
+  // Create slice mutation (now using optimistic updates)
   const createSliceMutation = useMutation({
     mutationFn: async (data: SliceFormData) => {
-      if (isOnline) {
-        return apiService.createSlice({
-          content: data.content,
-          type: data.type,
-          time: data.time.toISOString()
-        });
-      } else {
-        // Save offline
-        await addOfflineSlice({
-          content: data.content,
-          type: data.type,
-          time: data.time,
-          user: 'offline', // Will be updated when synced
-          tempId: `temp-${Date.now()}`
-        });
-        return { slice: null };
-      }
+      return await addSliceOptimistically(data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['slices'] });
       setShowAddModal(false);
-      toast.success(isOnline ? 'Slice created' : 'Slice saved offline');
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to create slice');
+      console.error('Failed to create slice:', error);
     }
   });
 
-  // Update slice mutation
+  // Update slice mutation (now using optimistic updates)
   const updateSliceMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: SliceFormData }) => {
-      return apiService.updateSlice(id, {
-        content: data.content,
-        type: data.type,
-        time: data.time.toISOString()
-      });
+      return await updateSliceOptimistically(id, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['slices'] });
       setEditingSlice(null);
-      toast.success('Slice updated');
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to update slice');
+      console.error('Failed to update slice:', error);
     }
   });
 
-  // Delete slice mutation
+  // Delete slice mutation (now using optimistic updates)
   const deleteSliceMutation = useMutation({
-    mutationFn: (id: string) => apiService.deleteSlice(id),
+    mutationFn: async (id: string) => {
+      return await deleteSliceOptimistically(id);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['slices'] });
-      toast.success('Slice deleted');
+      // No need to do anything, optimistic update already handled it
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to delete slice');
+      console.error('Failed to delete slice:', error);
     }
   });
 
@@ -135,33 +132,71 @@ const HomePage: React.FC = () => {
   const handleRefresh = () => {
     refetch();
     if (isOnline) {
+      processOperations();
       syncPendingSlices();
     }
   };
 
-  const slices = slicesData?.slices || [];
+  const displaySlices = slices.filter(slice => {
+    const sliceDate = new Date(slice.time);
+    return sliceDate >= startOfDay(selectedDate) && sliceDate <= endOfDay(selectedDate);
+  });
   const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+
+  const goToPreviousDay = () => {
+    setSelectedDate(subDays(selectedDate, 1));
+  };
+
+  const goToNextDay = () => {
+    setSelectedDate(addDays(selectedDate, 1));
+  };
+
+  const goToToday = () => {
+    setSelectedDate(new Date());
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {isToday ? 'Today' : format(selectedDate, 'EEEE, MMMM d, yyyy')}
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            {slices.length} {slices.length === 1 ? 'slice' : 'slices'}
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-1">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={goToPreviousDay}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <input
+              type="date"
+              value={format(selectedDate, 'yyyy-MM-dd')}
+              onChange={(e) => setSelectedDate(new Date(e.target.value))}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={goToNextDay}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+            {!isToday && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={goToToday}
+              >
+                Today
+              </Button>
+            )}
+          </div>
+          <p className="text-gray-600 dark:text-gray-400">
+            {displaySlices.length} {displaySlices.length === 1 ? 'slice' : 'slices'}
           </p>
         </div>
         
         <div className="flex items-center space-x-3">
-          <input
-            type="date"
-            value={format(selectedDate, 'yyyy-MM-dd')}
-            onChange={(e) => setSelectedDate(new Date(e.target.value))}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-          />
           <Button
             variant="secondary"
             size="sm"
@@ -202,7 +237,7 @@ const HomePage: React.FC = () => {
               Try Again
             </Button>
           </div>
-        ) : slices.length === 0 ? (
+        ) : displaySlices.length === 0 ? (
           <div className="text-center py-12">
             <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
@@ -218,7 +253,7 @@ const HomePage: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {slices.map((slice) => (
+            {displaySlices.map((slice) => (
               <SliceItem
                 key={slice.id}
                 slice={slice}

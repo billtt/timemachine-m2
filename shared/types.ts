@@ -89,6 +89,22 @@ export interface OfflineSlice {
   createdAt: Date;
   synced: boolean;
   tempId?: string;
+  pending?: boolean;
+  retryCount?: number;
+  lastRetryAt?: Date;
+}
+
+export interface PendingOperation {
+  id: string;
+  type: 'create' | 'update' | 'delete';
+  operation: 'slice';
+  data: any;
+  originalId?: string; // For updates/deletes
+  tempId?: string; // For optimistic updates
+  createdAt: Date;
+  retryCount: number;
+  lastRetryAt?: Date;
+  error?: string;
 }
 
 export interface SyncRequest {

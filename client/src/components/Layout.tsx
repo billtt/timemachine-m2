@@ -7,10 +7,8 @@ import {
   Moon, 
   Eye, 
   EyeOff, 
-  Plus, 
   Search, 
   Calendar, 
-  BarChart3,
   Settings,
   LogOut,
   Wifi,
@@ -45,10 +43,8 @@ const Layout: React.FC = () => {
   };
 
   const menuItems = [
-    { icon: Plus, label: 'Add Slice', path: '/add' },
     { icon: Calendar, label: 'Timeline', path: '/' },
     { icon: Search, label: 'Search', path: '/search' },
-    { icon: BarChart3, label: 'Stats', path: '/stats' },
     { icon: Settings, label: 'Settings', path: '/settings' },
   ];
 
@@ -175,12 +171,12 @@ const Layout: React.FC = () => {
 
       {/* Main content */}
       <div className="lg:ml-64">
-        {/* Header */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        {/* Mobile header */}
+        <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 lg:hidden">
           <div className="flex items-center justify-between px-4 py-3">
             <button
               onClick={toggleSidebar}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 lg:hidden"
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -193,11 +189,6 @@ const Layout: React.FC = () => {
                   <span>Syncing...</span>
                 </div>
               )}
-              
-              {/* Current time */}
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                {new Date().toLocaleTimeString()}
-              </div>
             </div>
           </div>
         </header>

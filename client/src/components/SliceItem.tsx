@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { Edit2, Trash2, Clock } from 'lucide-react';
 import { clsx } from 'clsx';
 import { SliceItemProps } from '../types';
+import PendingIndicator from './PendingIndicator';
 
 const SliceItem: React.FC<SliceItemProps> = ({
   slice,
@@ -10,27 +11,7 @@ const SliceItem: React.FC<SliceItemProps> = ({
   onDelete,
   privacyMode = false
 }) => {
-  const getTypeColor = (type: string) => {
-    const colors = {
-      work: 'border-blue-500 bg-blue-50 dark:bg-blue-900/20',
-      fun: 'border-green-500 bg-green-50 dark:bg-green-900/20',
-      gym: 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20',
-      reading: 'border-purple-500 bg-purple-50 dark:bg-purple-900/20',
-      other: 'border-gray-500 bg-gray-50 dark:bg-gray-900/20'
-    };
-    return colors[type as keyof typeof colors] || colors.other;
-  };
-
-  const getTypeIcon = (type: string) => {
-    const icons = {
-      work: '💼',
-      fun: '🎉',
-      gym: '💪',
-      reading: '📚',
-      other: '📝'
-    };
-    return icons[type as keyof typeof icons] || icons.other;
-  };
+  const sliceWithStatus = slice as any; // Type assertion for pending/error properties
 
   const formatTime = (date: Date) => {
     return format(new Date(date), 'MMM d, yyyy h:mm a');
@@ -47,20 +28,20 @@ const SliceItem: React.FC<SliceItemProps> = ({
       'p-4 rounded-lg border-l-4 transition-all duration-200',
       'hover:shadow-md dark:hover:shadow-gray-900/20',
       'animate-slide-up',
-      getTypeColor(slice.type)
+      'border-gray-500 bg-gray-50 dark:bg-gray-900/20'
     )}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
           {/* Header */}
-          <div className="flex items-center space-x-2 mb-2">
-            <span className="text-lg">{getTypeIcon(slice.type)}</span>
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-400 capitalize">
-              {slice.type}
-            </span>
+          <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-1 text-xs text-gray-500 dark:text-gray-500">
               <Clock className="w-3 h-3" />
               <span>{formatTime(slice.time)}</span>
             </div>
+            <PendingIndicator 
+              pending={sliceWithStatus.pending} 
+              error={sliceWithStatus.error} 
+            />
           </div>
 
           {/* Content */}

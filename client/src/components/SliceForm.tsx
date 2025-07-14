@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { format } from 'date-fns';
 import { Calendar, Clock, Type } from 'lucide-react';
-import { SliceFormProps, SliceFormData, SliceType, SLICE_TYPES } from '../types';
+import { SliceFormProps, SliceFormData, SliceType } from '../types';
 import Button from './Button';
 import Input from './Input';
 
@@ -20,7 +20,7 @@ const SliceForm: React.FC<SliceFormProps> = ({
     }
   });
 
-  const [selectedType, setSelectedType] = useState<SliceType>(slice?.type || 'other');
+  const selectedType: SliceType = 'other';
   const [selectedDate, setSelectedDate] = useState(
     slice?.time ? format(new Date(slice.time), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')
   );
@@ -31,9 +31,8 @@ const SliceForm: React.FC<SliceFormProps> = ({
   useEffect(() => {
     if (slice) {
       setValue('content', slice.content);
-      setValue('type', slice.type);
+      setValue('type', 'other');
       setValue('time', new Date(slice.time));
-      setSelectedType(slice.type);
       setSelectedDate(format(new Date(slice.time), 'yyyy-MM-dd'));
       setSelectedTime(format(new Date(slice.time), 'HH:mm'));
     }
@@ -50,27 +49,6 @@ const SliceForm: React.FC<SliceFormProps> = ({
     });
   };
 
-  const getTypeIcon = (type: SliceType) => {
-    const icons = {
-      work: '💼',
-      fun: '🎉',
-      gym: '💪',
-      reading: '📚',
-      other: '📝'
-    };
-    return icons[type];
-  };
-
-  const getTypeColor = (type: SliceType) => {
-    const colors = {
-      work: 'border-blue-500 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/30',
-      fun: 'border-green-500 bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30',
-      gym: 'border-yellow-500 bg-yellow-50 hover:bg-yellow-100 dark:bg-yellow-900/20 dark:hover:bg-yellow-900/30',
-      reading: 'border-purple-500 bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/20 dark:hover:bg-purple-900/30',
-      other: 'border-gray-500 bg-gray-50 hover:bg-gray-100 dark:bg-gray-900/20 dark:hover:bg-gray-900/30'
-    };
-    return colors[type];
-  };
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
@@ -93,31 +71,6 @@ const SliceForm: React.FC<SliceFormProps> = ({
         )}
       </div>
 
-      {/* Type Selection */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Category
-        </label>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {SLICE_TYPES.map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => setSelectedType(type)}
-              className={`p-3 rounded-lg border-2 transition-all duration-200 ${
-                selectedType === type
-                  ? `${getTypeColor(type)} border-current`
-                  : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'
-              }`}
-            >
-              <div className="flex items-center space-x-2">
-                <span className="text-lg">{getTypeIcon(type)}</span>
-                <span className="text-sm font-medium capitalize">{type}</span>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* Date and Time */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

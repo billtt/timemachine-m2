@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { OfflineState, OfflineSlice, CreateSliceRequest } from '../types';
+import { OfflineState, OfflineSlice, CreateSliceRequest, PendingOperation } from '../types';
 import offlineStorage from '../services/offline';
+import operationQueue from '../services/operationQueue';
 import apiService from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -10,6 +11,10 @@ interface OfflineStore extends OfflineState {
   loadPendingSlices: () => Promise<void>;
   clearSyncedSlices: () => Promise<void>;
   getSyncData: () => Promise<{ lastSyncTime: Date | null; pendingCount: number }>;
+  pendingOperations: PendingOperation[];
+  loadPendingOperations: () => Promise<void>;
+  addPendingOperation: (operation: Omit<PendingOperation, 'id' | 'createdAt' | 'retryCount'>) => Promise<string>;
+  processOperations: () => Promise<void>;
 }
 
 export const useOfflineStore = create<OfflineStore>((set, get) => ({
@@ -17,6 +22,7 @@ export const useOfflineStore = create<OfflineStore>((set, get) => ({
   pendingSlices: [],
   syncInProgress: false,
   lastSyncTime: null,
+  pendingOperations: [],
 
   addOfflineSlice: async (slice: Omit<OfflineSlice, 'id' | 'createdAt' | 'synced'>) => {
     try {
@@ -146,6 +152,39 @@ export const useOfflineStore = create<OfflineStore>((set, get) => ({
       console.error('Failed to get sync data:', error);
       return { lastSyncTime: null, pendingCount: 0 };
     }
+  },
+
+  loadPendingOperations: async () => {
+    try {
+      const operations = await operationQueue.getAllOperations();
+      set({ pendingOperations: operations });
+    } catch (error) {
+      console.error('Failed to load pending operations:', error);
+    }
+  },
+
+  addPendingOperation: async (operation: Omit<PendingOperation, 'id' | 'createdAt' | 'retryCount'>) => {
+    try {
+      const id = await operationQueue.addOperation(operation);
+      const operations = await operationQueue.getAllOperations();
+      set({ pendingOperations: operations });
+      return id;
+    } catch (error) {
+      console.error('Failed to add pending operation:', error);
+      throw error;
+    }
+  },
+
+  processOperations: async () => {
+    if (!navigator.onLine) return;
+    
+    try {
+      await operationQueue.processAllOperations();
+      const operations = await operationQueue.getAllOperations();
+      set({ pendingOperations: operations });
+    } catch (error) {
+      console.error('Failed to process operations:', error);
+    }
   }
 }));
 
@@ -153,8 +192,9 @@ export const useOfflineStore = create<OfflineStore>((set, get) => ({
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
     useOfflineStore.setState({ isOnline: true });
-    // Try to sync when coming back online
+    // Try to process operations when coming back online
     setTimeout(() => {
+      useOfflineStore.getState().processOperations();
       useOfflineStore.getState().syncPendingSlices();
     }, 1000);
   });
@@ -166,6 +206,7 @@ if (typeof window !== 'undefined') {
   // Periodic sync when online
   setInterval(() => {
     if (navigator.onLine) {
+      useOfflineStore.getState().processOperations();
       useOfflineStore.getState().syncPendingSlices();
     }
   }, 60000); // Sync every minute
