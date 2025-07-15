@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authRoutes from './auth';
 import sliceRoutes from './slices';
 import syncRoutes from './sync';
+import adminRoutes from './admin';
 import { generateCSRFToken, generateJWTCSRFToken } from '../middleware/csrf';
 
 const router = Router();
@@ -42,5 +43,8 @@ router.get('/csrf-token-jwt', (req, res) => {
 router.use('/auth', authRoutes);
 router.use('/slices', sliceRoutes);
 router.use('/sync', syncRoutes);
+
+// Admin routes (in production, add authentication middleware)
+router.use('/admin', adminRoutes);
 
 export default router;

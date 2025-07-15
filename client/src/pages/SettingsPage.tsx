@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, User, Shield, Database, Info, RefreshCw, Smartphone, LogOut } from 'lucide-react';
+import { Settings, User, Shield, Database, Info, RefreshCw, Smartphone, LogOut, Key } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useUIStore } from '../store/uiStore';
 import { useOfflineStore } from '../store/offlineStore';
 import Button from '../components/Button';
+import Input from '../components/Input';
+import apiService from '../services/api';
 import toast from 'react-hot-toast';
 
 const SettingsPage: React.FC = () => {
@@ -12,6 +14,15 @@ const SettingsPage: React.FC = () => {
   const { pendingSlices, syncPendingSlices } = useOfflineStore();
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Change password state
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // Check for PWA updates
   useEffect(() => {
@@ -77,6 +88,54 @@ const SettingsPage: React.FC = () => {
     }
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+    
+    if (passwordData.newPassword.length < 6) {
+      toast.error('New password must be at least 6 characters');
+      return;
+    }
+    
+    setIsChangingPassword(true);
+    
+    try {
+      await apiService.changePassword({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      });
+      
+      toast.success('Password changed successfully');
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      setShowChangePassword(false);
+    } catch (error) {
+      console.error('Change password error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to change password');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  const handlePasswordInputChange = (field: string, value: string) => {
+    setPasswordData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   const isPWA = () => {
     return window.matchMedia('(display-mode: standalone)').matches ||
            (window.navigator as any).standalone ||
@@ -125,6 +184,80 @@ const SettingsPage: React.FC = () => {
           </div>
 
           <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                  Change Password
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Update your account password
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowChangePassword(!showChangePassword)}
+              >
+                <Key className="w-4 h-4 mr-1" />
+                {showChangePassword ? 'Cancel' : 'Change Password'}
+              </Button>
+            </div>
+
+            {showChangePassword && (
+              <form onSubmit={handleChangePassword} className="space-y-4 mb-4">
+                <Input
+                  label="Current Password"
+                  type="password"
+                  value={passwordData.currentPassword}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePasswordInputChange('currentPassword', e.target.value)}
+                  required
+                  autoComplete="current-password"
+                />
+                <Input
+                  label="New Password"
+                  type="password"
+                  value={passwordData.newPassword}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePasswordInputChange('newPassword', e.target.value)}
+                  required
+                  autoComplete="new-password"
+                />
+                <Input
+                  label="Confirm New Password"
+                  type="password"
+                  value={passwordData.confirmPassword}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handlePasswordInputChange('confirmPassword', e.target.value)}
+                  required
+                  autoComplete="new-password"
+                />
+                <div className="flex space-x-2">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    isLoading={isChangingPassword}
+                    disabled={isChangingPassword}
+                  >
+                    Update Password
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setShowChangePassword(false);
+                      setPasswordData({
+                        currentPassword: '',
+                        newPassword: '',
+                        confirmPassword: ''
+                      });
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            )}
+
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-medium text-gray-900 dark:text-white">

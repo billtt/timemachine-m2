@@ -44,16 +44,35 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 export const login = asyncHandler(async (req: Request, res: Response) => {
   const { username, password }: LoginData = req.body;
 
-  // Find user and include password for comparison
-  const user = await User.findOne({ name: username }).select('+password');
+  console.log('Login attempt for user:', username);
+  console.log('Password provided:', password ? '[PROVIDED]' : '[MISSING]');
+
+  // Find user and include both password and key fields for comparison
+  const user = await User.findOne({ name: username }).select('+password +key');
   if (!user) {
+    console.log('User not found:', username);
     throw createError('Invalid credentials', 401);
   }
+
+  console.log('User found:', {
+    id: user._id,
+    name: user.name,
+    hasPassword: !!user.password,
+    passwordLength: user.password ? user.password.length : 0,
+    hasKey: !!user.key,
+    keyLength: user.key ? user.key.length : 0
+  });
 
   // Check password
   const isPasswordValid = await user.comparePassword(password);
   if (!isPasswordValid) {
+    console.log('Password validation failed for user:', username);
     throw createError('Invalid credentials', 401);
+  }
+
+  // Security: Log if user was using legacy password format
+  if (user.key && !user.password) {
+    console.warn(`SECURITY: User ${username} was using legacy MD5 password format - now upgraded to bcrypt`);
   }
 
   // Generate token
@@ -126,7 +145,7 @@ export const updateProfile = asyncHandler(async (req: AuthenticatedRequest, res:
 export const changePassword = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { currentPassword, newPassword } = req.body;
 
-  const user = await User.findById(req.user.id).select('+password');
+  const user = await User.findById(req.user.id).select('+password +key');
   if (!user) {
     throw createError('User not found', 404);
   }
@@ -137,8 +156,9 @@ export const changePassword = asyncHandler(async (req: AuthenticatedRequest, res
     throw createError('Current password is incorrect', 400);
   }
 
-  // Update password
+  // Update password and clear legacy key field
   user.password = newPassword;
+  user.key = null; // Clear legacy field
   await user.save();
 
   res.json({
