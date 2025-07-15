@@ -4,7 +4,6 @@ import { format } from 'date-fns';
 import { Calendar, Clock, Type } from 'lucide-react';
 import { SliceFormProps, SliceFormData, SliceType } from '../types';
 import Button from './Button';
-import Input from './Input';
 
 const SliceForm: React.FC<SliceFormProps> = ({
   slice,
@@ -13,7 +12,7 @@ const SliceForm: React.FC<SliceFormProps> = ({
   isLoading = false
 }) => {
   const contentRef = useRef<HTMLTextAreaElement>(null);
-  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<SliceFormData>({
+  const { register, handleSubmit, formState: { errors }, setValue } = useForm<SliceFormData>({
     defaultValues: {
       content: slice?.content || '',
       type: slice?.type || 'other',
@@ -70,7 +69,9 @@ const SliceForm: React.FC<SliceFormProps> = ({
           {...register('content', { required: 'Content is required' })}
           ref={(e) => {
             register('content').ref(e);
-            contentRef.current = e;
+            if (e && contentRef.current !== e) {
+              (contentRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = e;
+            }
           }}
           rows={4}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-600 dark:text-white"

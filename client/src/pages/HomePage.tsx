@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Calendar, Filter, RefreshCw, ChevronLeft, ChevronRight, Home } from 'lucide-react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { Plus, Calendar, RefreshCw, ChevronLeft, ChevronRight, Home } from 'lucide-react';
 import { format, startOfDay, endOfDay, addDays, subDays } from 'date-fns';
 import { useUIStore } from '../store/uiStore';
 import { useOfflineStore } from '../store/offlineStore';
@@ -13,16 +13,13 @@ import SliceForm from '../components/SliceForm';
 import Modal from '../components/Modal';
 import Button from '../components/Button';
 import Loading from '../components/Loading';
-import toast from 'react-hot-toast';
 
 const HomePage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingSlice, setEditingSlice] = useState<Slice | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
-  
   const { privacyMode, isOnline } = useUIStore();
-  const { addOfflineSlice, syncPendingSlices, loadPendingOperations, processOperations } = useOfflineStore();
+  const { syncPendingSlices, loadPendingOperations, processOperations } = useOfflineStore();
   const { 
     slices, 
     setSlices, 
@@ -30,7 +27,6 @@ const HomePage: React.FC = () => {
     updateSliceOptimistically, 
     deleteSliceOptimistically 
   } = useSliceStore();
-  const queryClient = useQueryClient();
 
   // Fetch slices for selected date
   const { data: slicesData, isLoading, error, refetch } = useQuery({
@@ -109,14 +105,25 @@ const HomePage: React.FC = () => {
     }
   });
 
-  const handleCreateSlice = (data: SliceFormData) => {
-    createSliceMutation.mutate(data);
+  const handleCreateSlice = async (data: SliceFormData) => {
+    return new Promise<void>((resolve, reject) => {
+      createSliceMutation.mutate(data, {
+        onSuccess: () => resolve(),
+        onError: (error) => reject(error)
+      });
+    });
   };
 
-  const handleUpdateSlice = (data: SliceFormData) => {
+  const handleUpdateSlice = async (data: SliceFormData) => {
     if (editingSlice) {
-      updateSliceMutation.mutate({ id: editingSlice.id, data });
+      return new Promise<void>((resolve, reject) => {
+        updateSliceMutation.mutate({ id: editingSlice.id, data }, {
+          onSuccess: () => resolve(),
+          onError: (error) => reject(error)
+        });
+      });
     }
+    return Promise.resolve();
   };
 
   const handleDeleteSlice = (id: string) => {

@@ -42,10 +42,10 @@ const userSchema = new Schema<IUser>(
     toJSON: {
       transform: function(doc, ret) {
         ret.id = ret._id;
-        delete ret._id;
-        delete ret.__v;
-        delete ret.password;
-        delete ret.token;
+        delete (ret as any)._id;
+        delete (ret as any).__v;
+        delete (ret as any).password;
+        delete (ret as any).token;
         return ret;
       }
     }

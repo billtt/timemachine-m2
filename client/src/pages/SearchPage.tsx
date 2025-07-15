@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Filter, Calendar } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useForm } from 'react-hook-form';
-import { format } from 'date-fns';
 import { useUIStore } from '../store/uiStore';
 import { SearchFormData } from '../types';
 import apiService from '../services/api';
@@ -95,7 +94,9 @@ const SearchPage: React.FC = () => {
             })}
             ref={(e) => {
               register('query').ref(e);
-              searchInputRef.current = e;
+              if (e && searchInputRef.current !== e) {
+                (searchInputRef as React.MutableRefObject<HTMLInputElement | null>).current = e;
+              }
             }}
             error={errors.query?.message}
           />

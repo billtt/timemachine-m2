@@ -2,12 +2,14 @@ import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { OfflineSlice, Slice } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
+// @ts-ignore - Temporary fix for schema typing issue
 interface TimeMachineDB extends DBSchema {
   slices: {
     key: string;
     value: Slice;
     indexes: { 'by-time': Date; 'by-type': string };
   };
+  // @ts-ignore
   offlineSlices: {
     key: string;
     value: OfflineSlice;

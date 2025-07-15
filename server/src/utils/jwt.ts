@@ -10,7 +10,7 @@ export interface JwtPayload {
 
 export const generateToken = (user: IUser): string => {
   const payload = {
-    userId: user._id.toString(),
+    userId: (user._id as any).toString(),
     username: user.name
   };
 
@@ -21,7 +21,7 @@ export const generateToken = (user: IUser): string => {
 
   const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
 
-  return jwt.sign(payload, secret, { expiresIn });
+  return jwt.sign(payload, secret, { expiresIn } as jwt.SignOptions);
 };
 
 export const verifyToken = (token: string): JwtPayload => {
@@ -45,5 +45,5 @@ export const extractTokenFromHeader = (authHeader: string | undefined): string |
     return null;
   }
   
-  return parts[1];
+  return parts[1] || null;
 };

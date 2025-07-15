@@ -8,9 +8,9 @@ import toast from 'react-hot-toast';
 
 interface SliceWithStatus extends Slice {
   pending?: boolean;
-  tempId?: string;
+  tempId?: string | undefined;
   error?: string;
-  isDeleting?: boolean;
+  isDeleting?: boolean | undefined;
 }
 
 interface SliceStore {
@@ -198,7 +198,7 @@ export const useSliceStore = create<SliceStore>((set, get) => ({
           return true;
         }
         return true;
-      }).map(slice => {
+      }).map((slice): SliceWithStatus => {
         if (slice.tempId === tempId) {
           if (realSlice) {
             // Replace with real slice from server, keeping the order
@@ -241,7 +241,7 @@ export const useSliceStore = create<SliceStore>((set, get) => ({
 }));
 
 // Register callbacks for operation completion
-operationQueue.onOperationSuccess((operationId: string, tempId?: string, result?: any) => {
+operationQueue.onOperationSuccess((_operationId, tempId, result) => {
   if (tempId) {
     const { markSliceAsCompleted } = useSliceStore.getState();
     
@@ -254,7 +254,7 @@ operationQueue.onOperationSuccess((operationId: string, tempId?: string, result?
   }
 });
 
-operationQueue.onOperationError((operationId: string, tempId?: string, error: string) => {
+operationQueue.onOperationError((_operationId, tempId, error) => {
   if (tempId) {
     const { markSliceAsError } = useSliceStore.getState();
     markSliceAsError(tempId, error);

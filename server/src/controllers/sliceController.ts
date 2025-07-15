@@ -3,6 +3,7 @@ import { Slice } from '../models/Slice';
 import { asyncHandler, createError } from '../middleware/errorHandler';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { CreateSliceData, UpdateSliceData } from '../types/validation';
+import { SliceType } from '../types/shared';
 
 export const createSlice = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { content, type, time }: CreateSliceData = req.body;
@@ -104,7 +105,7 @@ export const updateSlice = asyncHandler(async (req: AuthenticatedRequest, res: R
 
   // Update fields
   if (content !== undefined) slice.content = content;
-  if (type !== undefined) slice.type = type;
+  if (type !== undefined) slice.type = type as SliceType;
   if (time !== undefined) slice.time = new Date(time);
 
   await slice.save();
@@ -276,7 +277,7 @@ export const searchSlices = asyncHandler(async (req: AuthenticatedRequest, res: 
     throw error;
   }
 
-  res.json({
+  return res.json({
     success: true,
     data: {
       slices,

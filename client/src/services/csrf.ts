@@ -1,4 +1,3 @@
-import apiService from './api';
 
 class CSRFService {
   private csrfToken: string | null = null;

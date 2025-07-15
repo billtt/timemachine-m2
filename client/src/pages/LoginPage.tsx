@@ -34,7 +34,7 @@ const LoginPage: React.FC = () => {
         await register({
           username: data.username,
           password: data.password,
-          email: data.email || undefined
+          ...(data.email && { email: data.email })
         });
       }
     } catch (error) {

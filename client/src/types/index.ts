@@ -1,5 +1,112 @@
-// Re-export shared types
-export * from '../../../shared/types';
+// Re-export shared types - temporarily inline them
+export interface User {
+  id: string;
+  name: string;
+  email?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface UserAuth {
+  id: string;
+  name: string;
+  token: string;
+  createdAt?: Date;
+}
+
+export interface Slice {
+  id: string;
+  content: string;
+  type: SliceType;
+  user: string;
+  time: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type SliceType = 'work' | 'fun' | 'gym' | 'reading' | 'other';
+
+export const SLICE_TYPES: SliceType[] = ['work', 'fun', 'gym', 'reading', 'other'];
+
+export interface CreateSliceRequest {
+  content: string;
+  type: SliceType;
+  time?: Date;
+}
+
+export interface UpdateSliceRequest {
+  content?: string;
+  type?: SliceType;
+  time?: Date;
+}
+
+export interface OfflineSlice {
+  id: string;
+  content: string;
+  type: SliceType;
+  time: Date;
+  createdAt: Date;
+  synced: boolean;
+  tempId?: string;
+  pending?: boolean;
+  retryCount?: number;
+  lastRetryAt?: Date;
+}
+
+export interface PendingOperation {
+  id: string;
+  type: 'create' | 'update' | 'delete';
+  operation: 'slice';
+  data: any;
+  originalId?: string;
+  tempId?: string;
+  createdAt: Date;
+  retryCount: number;
+  lastRetryAt?: Date;
+  error?: string;
+}
+
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  username: string;
+  password: string;
+  email?: string;
+}
+
+export interface AuthResponse {
+  user: UserAuth;
+  token: string;
+}
+
+export interface ApiResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+  code?: string;
+}
+
+export interface SyncRequest {
+  slices: OfflineSlice[];
+}
+
+export interface SyncResponse {
+  synced: string[];
+  failed: Array<{ id: string; error: string }>;
+}
+
+export interface SliceStats {
+  totalSlices: number;
+  slicesByType: Record<SliceType, number>;
+  slicesByDay: Record<string, number>;
+  avgSlicesPerDay: number;
+  mostActiveDay: string;
+  mostActiveType: SliceType;
+}
 
 // Additional frontend-specific types
 export interface AuthState {
@@ -89,6 +196,7 @@ export interface ButtonProps {
   children: React.ReactNode;
   onClick?: () => void;
   type?: 'button' | 'submit' | 'reset';
+  title?: string;
 }
 
 export interface InputProps {

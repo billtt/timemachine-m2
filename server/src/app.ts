@@ -12,7 +12,7 @@ const app = express();
 
 // Security middleware
 app.use(helmet({
-  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
+  contentSecurityPolicy: process.env.NODE_ENV === 'production' ? true : false,
   crossOriginEmbedderPolicy: false
 }));
 

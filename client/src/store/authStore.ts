@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AuthState, UserAuth, LoginRequest, RegisterRequest } from '../types';
+import { AuthState, LoginRequest, RegisterRequest } from '../types';
 import { STORAGE_KEYS } from '../types';
 import apiService from '../services/api';
 import toast from 'react-hot-toast';

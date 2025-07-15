@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { OfflineState, OfflineSlice, CreateSliceRequest, PendingOperation } from '../types';
+import { OfflineState, OfflineSlice, PendingOperation } from '../types';
 import offlineStorage from '../services/offline';
 import operationQueue from '../services/operationQueue';
 import apiService from '../services/api';
