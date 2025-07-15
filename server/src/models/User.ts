@@ -123,14 +123,36 @@ userSchema.methods.comparePassword = async function(candidatePassword: string): 
         
         // Automatically upgrade to bcrypt format
         console.log('Auto-upgrading password to bcrypt format...');
+        console.log('User before upgrade:', {
+          name: this.name,
+          hasPassword: !!this.password,
+          hasKey: !!this.key,
+          keyLength: this.key ? this.key.length : 0
+        });
+        
         try {
           const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || '12');
           this.password = await bcrypt.hash(candidatePassword, saltRounds);
           this.key = null; // Clear legacy field
+          
+          console.log('About to save user with new password...');
           await this.save();
+          
           console.log('Password successfully upgraded to bcrypt');
+          console.log('User after upgrade:', {
+            name: this.name,
+            hasPassword: !!this.password,
+            hasKey: !!this.key,
+            passwordLength: this.password ? this.password.length : 0
+          });
+          
         } catch (upgradeError) {
           console.error('Failed to upgrade password:', upgradeError);
+          console.error('Error details:', {
+            name: (upgradeError as Error).name,
+            message: (upgradeError as Error).message,
+            stack: (upgradeError as Error).stack
+          });
           // Still return true since the password was valid, but log the upgrade failure
         }
         
