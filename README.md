@@ -13,8 +13,9 @@ A modern rewrite of the TimeMachine personal life tracking application using the
 - **Responsive Design**: Works seamlessly on desktop and mobile
 - **Dark Mode**: Toggle between light and dark themes
 - **Privacy Mode**: Quickly hide sensitive content (press Q)
-- **Search**: Full-text search with regex support
-- **Authentication**: JWT-based secure authentication
+- **Advanced Search**: Full-text search with secure regex support and input validation
+- **Authentication**: JWT-based secure authentication with CSRF protection
+- **Security**: Comprehensive security features including CSRF protection, input validation, and ReDoS prevention
 - **Modern UI**: Clean, intuitive interface with animations
 
 ## Tech Stack
@@ -27,6 +28,9 @@ A modern rewrite of the TimeMachine personal life tracking application using the
 - **bcrypt**: Password hashing
 - **Zod**: Runtime validation
 - **Express Rate Limit**: API protection
+- **CSRF Protection**: Double-submit cookie pattern for CSRF prevention
+- **Helmet**: Security headers
+- **Input Validation**: Comprehensive input sanitization and validation
 
 ### Frontend
 - **React 18**: UI framework
@@ -39,6 +43,7 @@ A modern rewrite of the TimeMachine personal life tracking application using the
 - **React Hook Form**: Form handling
 - **IndexedDB**: Offline storage
 - **Service Workers**: PWA functionality
+- **CSRF Client**: Automatic CSRF token management and injection
 
 ## Project Structure
 
@@ -95,11 +100,11 @@ time.new/
    npm run dev
    ```
 
-   This starts both the backend (port 5000) and frontend (port 3000) in development mode.
+   This starts both the backend (port 3001) and frontend (port 3000) in development mode.
 
 4. **Access the application**:
    - Frontend: http://localhost:3000
-   - Backend API: http://localhost:5000
+   - Backend API: http://localhost:3001
 
 ### Production Build
 
@@ -112,9 +117,9 @@ npm start
 
 ### Server (.env)
 ```env
-PORT=5000
+PORT=3001
 NODE_ENV=development
-MONGODB_URI=mongodb://127.0.0.1:27017/timemachine
+MONGODB_URI=mongodb://127.0.0.1:27017/time
 JWT_SECRET=your-secret-key
 JWT_EXPIRES_IN=7d
 BCRYPT_ROUNDS=12
@@ -123,29 +128,34 @@ CORS_ORIGIN=http://localhost:3000
 
 ### Client (Optional)
 ```env
-VITE_API_URL=http://localhost:5000/api
+VITE_API_URL=http://localhost:3001/api
 ```
 
 ## API Endpoints
 
+### Security
+- `GET /api/csrf-token` - Get CSRF token (cookie-based)
+- `GET /api/csrf-token-jwt` - Get JWT-based CSRF token
+- `GET /api/health` - Health check endpoint
+
 ### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - Login user
+- `POST /api/auth/register` - Register new user (CSRF protected)
+- `POST /api/auth/login` - Login user (CSRF protected)
 - `GET /api/auth/profile` - Get user profile
-- `PUT /api/auth/profile` - Update profile
-- `PUT /api/auth/password` - Change password
+- `PUT /api/auth/profile` - Update profile (CSRF protected)
+- `PUT /api/auth/password` - Change password (CSRF protected)
 
 ### Slices
 - `GET /api/slices` - Get slices with filters
-- `POST /api/slices` - Create new slice
+- `POST /api/slices` - Create new slice (CSRF protected)
 - `GET /api/slices/:id` - Get specific slice
-- `PUT /api/slices/:id` - Update slice
-- `DELETE /api/slices/:id` - Delete slice
-- `GET /api/slices/search` - Search slices
+- `PUT /api/slices/:id` - Update slice (CSRF protected)
+- `DELETE /api/slices/:id` - Delete slice (CSRF protected)
+- `GET /api/slices/search` - Search slices (rate limited, input validated)
 - `GET /api/slices/stats` - Get statistics
 
 ### Sync (PWA)
-- `POST /api/sync` - Sync offline slices
+- `POST /api/sync` - Sync offline slices (CSRF protected)
 - `GET /api/sync/last-sync` - Get last sync time
 - `GET /api/sync/since` - Get slices since timestamp
 
@@ -173,6 +183,36 @@ The new version is compatible with the existing MongoDB database. The data struc
 
 - **Users collection**: `{ name, key, token, createdAt, updatedAt }`
 - **Slices collection**: `{ user, content, type, time, createdAt, updatedAt }`
+
+## Security Implementation Details
+
+### CSRF Protection Implementation
+The application implements two CSRF protection mechanisms:
+
+1. **Double-Submit Cookie Pattern** (Default)
+   - Server generates CSRF token and stores secret in httpOnly cookie
+   - Client receives token and includes it in `X-CSRF-Token` header
+   - Server validates token against cookie secret
+   - Automatic token refresh on expiration
+
+2. **JWT-Based CSRF Tokens** (Alternative)
+   - Server generates JWT with `type: 'csrf'` claim
+   - Token has short expiration (1 hour)
+   - Client includes token in request headers
+   - Server validates JWT signature and claims
+
+### Search Security
+- **Input Length Validation**: Search queries limited to 200 characters
+- **Regex Pattern Validation**: Dangerous patterns blocked (nested quantifiers, catastrophic backtracking)
+- **Timeout Protection**: Regex operations timeout after 5 seconds
+- **Rate Limiting**: Search endpoints limited to 10 requests per minute per IP
+- **Input Sanitization**: Special characters escaped for non-regex searches
+
+### Client-Side Security
+- **Automatic CSRF Token Management**: Client service handles token fetching and injection
+- **Token Refresh**: Automatic retry with new token on 403 CSRF errors
+- **Security Headers**: CSP, X-Frame-Options, and other security headers in client HTML
+- **Secure Cookie Handling**: CSRF secrets stored in httpOnly cookies
 
 ## Development
 
@@ -236,13 +276,42 @@ pm2 monit
 
 ## Security Features
 
-- JWT authentication
-- Password hashing with bcrypt
-- Rate limiting
-- CORS protection
-- Input validation
+### Authentication & Authorization
+- JWT authentication with secure token handling
+- Password hashing with bcrypt (configurable rounds)
+- Session management with secure cookies
+
+### CSRF Protection
+- Double-submit cookie pattern for CSRF prevention
+- Automatic CSRF token injection in API requests
+- JWT-based CSRF tokens as alternative implementation
+- CSRF token refresh on expiration
+
+### Input Validation & Sanitization
+- Comprehensive input validation using Zod
+- Search query length limits (200 characters max)
+- Regex pattern validation to prevent ReDoS attacks
+- Dangerous regex pattern detection and blocking
+- Timeout protection for regex operations (5 seconds)
+
+### Rate Limiting & DDoS Protection
+- General API rate limiting
+- Specific rate limiting for search endpoints (10 requests/minute)
+- Request timeout protection
+
+### Security Headers
+- Content Security Policy (CSP)
+- X-Frame-Options (clickjacking protection)
+- X-Content-Type-Options (MIME type sniffing protection)
+- X-XSS-Protection
+- Referrer-Policy for privacy
+- Helmet.js for comprehensive security headers
+
+### Additional Security
+- CORS protection with configurable origins
 - SQL injection protection (NoSQL)
-- XSS protection
+- Secure cookie configuration
+- Environment-based security settings
 
 ## Browser Support
 
@@ -282,3 +351,12 @@ MIT License - see LICENSE file for details
 - All existing features preserved
 - Enhanced with modern capabilities
 - Better performance and security
+
+### v2.0.1 (Security Update)
+- Added comprehensive CSRF protection
+- Enhanced input validation and sanitization
+- Implemented ReDoS attack prevention
+- Added rate limiting for search endpoints
+- Improved security headers configuration
+- Enhanced regex pattern validation
+- Added timeout protection for operations
