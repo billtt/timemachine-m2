@@ -3,7 +3,37 @@ import app from './app';
 import { connectDatabase } from './config/database';
 
 // Load environment variables
-dotenv.config();
+// Try multiple env file locations
+const envFiles = [
+  '.env.production',
+  '.env',
+  'server/.env.production',
+  'server/.env'
+];
+
+let loadedEnvFile = 'none';
+for (const envFile of envFiles) {
+  try {
+    const result = dotenv.config({ path: envFile });
+    if (!result.error) {
+      loadedEnvFile = envFile;
+      break;
+    }
+  } catch (error) {
+    // Continue to next file
+  }
+}
+
+// Debug: Log environment loading
+console.log(`🔧 Loading environment from: ${loadedEnvFile}`);
+console.log(`📝 NODE_ENV: ${process.env.NODE_ENV}`);
+console.log(`🔑 JWT_SECRET loaded: ${process.env.JWT_SECRET ? 'YES' : 'NO'}`);
+console.log(`🗄️ MONGODB_URI loaded: ${process.env.MONGODB_URI ? 'YES' : 'NO'}`);
+
+// Additional debug: Show first few characters of JWT_SECRET if it exists
+if (process.env.JWT_SECRET) {
+  console.log(`🔑 JWT_SECRET preview: ${process.env.JWT_SECRET.substring(0, 8)}...`);
+}
 
 const PORT = process.env.PORT || 5000;
 let server: any;
