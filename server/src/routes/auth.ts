@@ -8,19 +8,21 @@ import {
 } from '../controllers/authController';
 import { validate } from '../middleware/validation';
 import { authenticateToken } from '../middleware/auth';
+import { csrfProtection } from '../middleware/csrf';
 import { loginSchema, registerSchema } from '../types/validation';
 import { z } from 'zod';
 
 const router = Router();
 
-// Public routes
-router.post('/register', validate(registerSchema), register);
-router.post('/login', validate(loginSchema), login);
+// Public routes - CSRF protected
+router.post('/register', csrfProtection(), validate(registerSchema), register);
+router.post('/login', csrfProtection(), validate(loginSchema), login);
 
 // Protected routes
 router.get('/profile', authenticateToken, getProfile);
 router.put('/profile', 
   authenticateToken, 
+  csrfProtection(),
   validate(z.object({
     email: z.string().email().optional().or(z.literal(''))
   })), 
@@ -28,6 +30,7 @@ router.put('/profile',
 );
 router.put('/password', 
   authenticateToken, 
+  csrfProtection(),
   validate(z.object({
     currentPassword: z.string().min(6),
     newPassword: z.string().min(6)

@@ -15,6 +15,7 @@ import {
 } from '../types';
 import { STORAGE_KEYS } from '../types';
 import toast from 'react-hot-toast';
+import csrfService from './csrf';
 
 class ApiService {
   private api: AxiosInstance;
@@ -36,13 +37,26 @@ class ApiService {
   }
 
   private setupInterceptors() {
-    // Request interceptor to add auth token
+    // Request interceptor to add auth token and CSRF token
     this.api.interceptors.request.use(
-      (config) => {
+      async (config) => {
+        // Add auth token
         const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
+
+        // Add CSRF token for state-changing requests
+        if (!['GET', 'HEAD', 'OPTIONS'].includes(config.method?.toUpperCase() || '')) {
+          try {
+            const csrfToken = await csrfService.getToken();
+            config.headers['X-CSRF-Token'] = csrfToken;
+          } catch (error) {
+            console.error('Failed to get CSRF token:', error);
+            // Continue without CSRF token in case of error
+          }
+        }
+
         return config;
       },
       (error) => Promise.reject(error)
@@ -51,9 +65,22 @@ class ApiService {
     // Response interceptor for error handling
     this.api.interceptors.response.use(
       (response) => response,
-      (error) => {
+      async (error) => {
         if (error.response?.status === 401) {
           this.handleAuthError();
+        } else if (error.response?.status === 403) {
+          // Handle CSRF errors
+          const errorCode = error.response?.data?.code;
+          if (errorCode === 'CSRF_TOKEN_MISSING' || errorCode === 'CSRF_TOKEN_INVALID') {
+            // Try to refresh CSRF token and retry the request once
+            try {
+              await csrfService.refreshToken();
+              // Retry the original request
+              return this.api.request(error.config);
+            } catch (csrfError) {
+              toast.error('Security validation failed. Please refresh the page.');
+            }
+          }
         } else if (error.response?.status >= 500) {
           toast.error('Server error. Please try again later.');
         } else if (error.code === 'ECONNABORTED') {
@@ -68,6 +95,7 @@ class ApiService {
 
   private handleAuthError() {
     localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+    csrfService.clearToken(); // Clear CSRF token on auth error
     window.location.href = '/login';
   }
 

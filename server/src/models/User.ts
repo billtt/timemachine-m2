@@ -8,7 +8,7 @@ export interface IUser extends Document {
   token?: string;
   createdAt: Date;
   updatedAt: Date;
-  comparePassword(candidatePassword: string): Promise<boolean>;
+  comparePassword(candidatePassword: string): Promise<boolean>; // eslint-disable-line no-unused-vars
 }
 
 const userSchema = new Schema<IUser>(

@@ -129,6 +129,7 @@ export interface UseOfflineReturn {
 export interface ApiError {
   message: string;
   status: number;
+  code?: string; // Error code (e.g., CSRF_TOKEN_MISSING)
   details?: any;
 }
 

@@ -1,5 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
-import { SliceType, SLICE_TYPES } from '../../../shared/types';
+import { SliceType, SLICE_TYPES } from '../types/shared';
 
 export interface ISlice extends Document {
   content: string;

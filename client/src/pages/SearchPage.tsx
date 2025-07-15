@@ -53,7 +53,6 @@ const SearchPage: React.FC = () => {
   });
 
   const handleSearch = (data: SearchFormData) => {
-    console.log('Search form submitted with data:', data);
     setSearchQuery(data.query);
     setUseRegex(data.useRegex || false);
   };
@@ -83,11 +82,17 @@ const SearchPage: React.FC = () => {
 
       {/* Search Form */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <form onSubmit={handleSubmit(handleSearch, (errors) => console.log('Form validation errors:', errors))} className="space-y-4">
+        <form onSubmit={handleSubmit(handleSearch)} className="space-y-4">
           {/* Search input */}
           <Input
             placeholder="Search for activities..."
-            {...register('query', { required: 'Search query is required' })}
+            {...register('query', { 
+              required: 'Search query is required',
+              maxLength: {
+                value: 200,
+                message: 'Search query must be less than 200 characters'
+              }
+            })}
             ref={(e) => {
               register('query').ref(e);
               searchInputRef.current = e;
@@ -96,16 +101,21 @@ const SearchPage: React.FC = () => {
           />
 
           {/* Filters */}
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="regex"
-              {...register('useRegex')}
-              className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600"
-            />
-            <label htmlFor="regex" className="text-sm text-gray-700 dark:text-gray-300">
-              Use regex
-            </label>
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="regex"
+                {...register('useRegex')}
+                className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600"
+              />
+              <label htmlFor="regex" className="text-sm text-gray-700 dark:text-gray-300">
+                Use regex
+              </label>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Regex patterns are limited to 100 characters and certain complex patterns are blocked for security.
+            </p>
           </div>
 
           {/* Actions */}

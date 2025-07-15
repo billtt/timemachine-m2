@@ -32,7 +32,7 @@ export const verifyToken = (token: string): JwtPayload => {
 
   try {
     return jwt.verify(token, secret) as JwtPayload;
-  } catch (error) {
+  } catch {
     throw new Error('Invalid token');
   }
 };

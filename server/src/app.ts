@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
 import routes from './routes';
 import { errorHandler, notFound } from './middleware/errorHandler';
 
@@ -45,6 +46,9 @@ if (process.env.NODE_ENV !== 'test') {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Cookie parsing
+app.use(cookieParser());
+
 // Compression
 app.use(compression());
 
@@ -58,6 +62,8 @@ app.get('/', (req, res) => {
     message: 'TimeMachine API v2.0.0',
     endpoints: {
       health: '/api/health',
+      csrf: '/api/csrf-token',
+      csrfJWT: '/api/csrf-token-jwt',
       auth: '/api/auth',
       slices: '/api/slices',
       sync: '/api/sync'

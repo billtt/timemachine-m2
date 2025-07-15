@@ -44,7 +44,7 @@ export const authenticateToken = async (
     };
 
     next();
-  } catch (error) {
+  } catch {
     res.status(401).json({
       success: false,
       error: 'Invalid token'
@@ -73,7 +73,7 @@ export const optionalAuth = async (
     }
     
     next();
-  } catch (error) {
+  } catch {
     // Optional auth doesn't fail, just continues without user
     next();
   }

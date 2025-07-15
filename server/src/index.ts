@@ -6,6 +6,7 @@ import { connectDatabase } from './config/database';
 dotenv.config();
 
 const PORT = process.env.PORT || 5000;
+let server: any;
 
 // Graceful shutdown handler
 const gracefulShutdown = (signal: string) => {
@@ -31,7 +32,7 @@ const startServer = async () => {
     await connectDatabase();
     
     // Start HTTP server
-    const server = app.listen(PORT, () => {
+    server = app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📱 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`🌐 API available at: http://localhost:${PORT}/api`);

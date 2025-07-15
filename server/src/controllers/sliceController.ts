@@ -1,8 +1,8 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { Slice } from '../models/Slice';
 import { asyncHandler, createError } from '../middleware/errorHandler';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { CreateSliceData, UpdateSliceData, SliceQueryData, SearchQueryData } from '../types/validation';
+import { CreateSliceData, UpdateSliceData } from '../types/validation';
 
 export const createSlice = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { content, type, time }: CreateSliceData = req.body;
@@ -24,7 +24,7 @@ export const createSlice = asyncHandler(async (req: AuthenticatedRequest, res: R
 });
 
 export const getSlices = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const { page = 1, limit = 50, startDate, endDate, type, search }: SliceQueryData = req.query as any;
+  const { page = 1, limit = 50, startDate, endDate, type, search } = req.query as any;
 
   // Build query
   const query: any = { user: req.user.id };
@@ -41,10 +41,17 @@ export const getSlices = asyncHandler(async (req: AuthenticatedRequest, res: Res
     query.type = type;
   }
 
-  // Search filter
+  // Search filter with input validation
   if (search) {
+    // Validate search input length
+    if (search.length > 200) {
+      throw createError('Search query too long (maximum 200 characters)', 400);
+    }
+    
+    // Escape special regex characters to prevent ReDoS
+    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     query.$or = [
-      { content: { $regex: search, $options: 'i' } }
+      { content: { $regex: escapedSearch, $options: 'i' } }
     ];
   }
 
@@ -125,6 +132,69 @@ export const deleteSlice = asyncHandler(async (req: AuthenticatedRequest, res: R
   });
 });
 
+// Regex validation helper functions
+const validateRegexPattern = (pattern: string): { isValid: boolean; error?: string } => {
+  // Check pattern length (prevent overly long patterns)
+  if (pattern.length > 100) {
+    return { isValid: false, error: 'Regex pattern too long (maximum 100 characters)' };
+  }
+
+  // Check for potentially dangerous patterns that can cause ReDoS
+  const dangerousPatterns = [
+    // Nested quantifiers: (a+)+, (a*)+, (a?)*
+    /\([^)]*[*+?][^)]*\)[*+?]/,
+    // Alternation with quantifiers: (a|b)*
+    /\([^)]*\|[^)]*\)[*+?]/,
+    // Excessive repetition: {n,m} where n,m are large or unbounded
+    /\{[0-9]*,[0-9]*\}/,
+    // Nested groups with quantifiers: ((a+)+)+
+    /\([^)]*\([^)]*\)[^)]*\)[*+?]/,
+    // Multiple consecutive quantifiers
+    /[*+?]\s*[*+?]/,
+    // Catastrophic backtracking patterns
+    /\([^)]*\+[^)]*\)\*/,
+    /\([^)]*\*[^)]*\)\+/
+  ];
+
+  for (const dangerousPattern of dangerousPatterns) {
+    if (dangerousPattern.test(pattern)) {
+      return { isValid: false, error: 'Potentially dangerous regex pattern detected' };
+    }
+  }
+
+  // Test if the pattern is valid by trying to create a RegExp
+  try {
+    new RegExp(pattern);
+    return { isValid: true };
+  } catch {
+    return { isValid: false, error: 'Invalid regex syntax' };
+  }
+};
+
+// Timeout wrapper for regex operations
+const executeRegexWithTimeout = async (query: any, page: number, limit: number, timeoutMs: number = 5000): Promise<[any[], number]> => {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Regex operation timed out'));
+    }, timeoutMs);
+
+    const skip = (page - 1) * limit;
+    Promise.all([
+      Slice.find(query)
+        .sort({ time: -1 })
+        .skip(skip)
+        .limit(limit),
+      Slice.countDocuments(query)
+    ]).then(result => {
+      clearTimeout(timeout);
+      resolve(result);
+    }).catch(error => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+  });
+};
+
 export const searchSlices = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { q, page: pageStr = '1', limit: limitStr = '50', type, useRegex: useRegexStr }: any = req.query;
   
@@ -140,6 +210,14 @@ export const searchSlices = asyncHandler(async (req: AuthenticatedRequest, res: 
     });
   }
 
+  // Additional length validation for all queries
+  if (q.length > 200) {
+    return res.status(400).json({
+      success: false,
+      error: 'Search query too long (maximum 200 characters)'
+    });
+  }
+
   // Build query
   const query: any = { user: req.user.id };
 
@@ -148,11 +226,20 @@ export const searchSlices = asyncHandler(async (req: AuthenticatedRequest, res: 
     query.type = type;
   }
 
-  // Search query
+  // Search query with security validation
   if (useRegex) {
+    // Validate regex pattern for security
+    const validation = validateRegexPattern(q);
+    if (!validation.isValid) {
+      return res.status(400).json({
+        success: false,
+        error: validation.error || 'Invalid regex pattern'
+      });
+    }
+
     try {
       query.content = { $regex: q, $options: 'i' };
-    } catch (error) {
+    } catch {
       return res.status(400).json({
         success: false,
         error: 'Invalid regex pattern'
@@ -162,15 +249,32 @@ export const searchSlices = asyncHandler(async (req: AuthenticatedRequest, res: 
     query.content = { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
   }
 
-  // Execute query with pagination
-  const skip = (page - 1) * limit;
-  const [slices, total] = await Promise.all([
-    Slice.find(query)
-      .sort({ time: -1 })
-      .skip(skip)
-      .limit(limit),
-    Slice.countDocuments(query)
-  ]);
+  // Execute query with pagination and timeout protection
+  let slices: any[], total: number;
+  try {
+    if (useRegex) {
+      // Use timeout wrapper for regex operations
+      [slices, total] = await executeRegexWithTimeout(query, page, limit, 5000);
+    } else {
+      // Regular execution for non-regex queries
+      const skip = (page - 1) * limit;
+      [slices, total] = await Promise.all([
+        Slice.find(query)
+          .sort({ time: -1 })
+          .skip(skip)
+          .limit(limit),
+        Slice.countDocuments(query)
+      ]);
+    }
+  } catch (error: any) {
+    if (error.message === 'Regex operation timed out') {
+      return res.status(400).json({
+        success: false,
+        error: 'Search query took too long to execute. Please try a simpler pattern.'
+      });
+    }
+    throw error;
+  }
 
   res.json({
     success: true,
