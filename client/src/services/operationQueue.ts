@@ -18,8 +18,18 @@ class OperationQueueService {
   private retryInterval: number | null = null;
   private successCallbacks: ((operationId: string, tempId?: string, result?: any) => void)[] = [];
   private errorCallbacks: ((operationId: string, tempId?: string, error: string) => void)[] = [];
+  private initPromise: Promise<void> | null = null;
 
   async init(): Promise<void> {
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+
+    this.initPromise = this.doInit();
+    return this.initPromise;
+  }
+
+  private async doInit(): Promise<void> {
     try {
       this.db = await openDB<OperationQueueDB>(this.dbName, this.dbVersion, {
         upgrade(db) {
@@ -35,12 +45,19 @@ class OperationQueueService {
       this.startRetryMechanism();
     } catch (error) {
       console.error('Failed to initialize operation queue:', error);
+      this.initPromise = null; // Reset so it can be retried
       throw error;
     }
   }
 
+  private async ensureInitialized(): Promise<void> {
+    if (!this.db) {
+      await this.init();
+    }
+  }
+
   async addOperation(operation: Omit<PendingOperation, 'id' | 'createdAt' | 'retryCount'>): Promise<string> {
-    if (!this.db) throw new Error('Database not initialized');
+    await this.ensureInitialized();
 
     const id = uuidv4();
     const pendingOperation: PendingOperation = {
@@ -61,32 +78,33 @@ class OperationQueueService {
   }
 
   async getAllOperations(): Promise<PendingOperation[]> {
-    if (!this.db) throw new Error('Database not initialized');
-    return await this.db.getAll('operations');
+    await this.ensureInitialized();
+    return await this.db!.getAll('operations');
   }
 
   async getOperationsByType(type: string): Promise<PendingOperation[]> {
-    if (!this.db) throw new Error('Database not initialized');
-    return await this.db.getAllFromIndex('operations', 'by-type', type);
+    await this.ensureInitialized();
+    return await this.db!.getAllFromIndex('operations', 'by-type', type);
   }
 
   async removeOperation(id: string): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
-    await this.db.delete('operations', id);
+    await this.ensureInitialized();
+    await this.db!.delete('operations', id);
   }
 
   async updateOperation(id: string, updates: Partial<PendingOperation>): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    await this.ensureInitialized();
     
-    const operation = await this.db.get('operations', id);
+    const operation = await this.db!.get('operations', id);
     if (operation) {
       const updatedOperation = { ...operation, ...updates };
-      await this.db.put('operations', updatedOperation);
+      await this.db!.put('operations', updatedOperation);
     }
   }
 
   async processNextOperation(): Promise<boolean> {
-    if (!this.db || !navigator.onLine) return false;
+    if (!navigator.onLine) return false;
+    await this.ensureInitialized();
 
     const operations = await this.getAllOperations();
     const pendingOperations = operations.sort((a, b) => 
@@ -188,13 +206,13 @@ class OperationQueueService {
   }
 
   async clearAllOperations(): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
-    await this.db.clear('operations');
+    await this.ensureInitialized();
+    await this.db!.clear('operations');
   }
 
   async getOperationCount(): Promise<number> {
-    if (!this.db) throw new Error('Database not initialized');
-    return await this.db.count('operations');
+    await this.ensureInitialized();
+    return await this.db!.count('operations');
   }
 
   onOperationSuccess(callback: (operationId: string, tempId?: string, result?: any) => void): void {

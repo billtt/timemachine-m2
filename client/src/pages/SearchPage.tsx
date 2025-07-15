@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Search, Filter, Calendar } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -16,8 +16,16 @@ const SearchPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [useRegex, setUseRegex] = useState(false);
   const { privacyMode, isOnline } = useUIStore();
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const { register, handleSubmit, reset } = useForm<SearchFormData>();
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<SearchFormData>();
+
+  // Auto-focus search input when page loads
+  useEffect(() => {
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, []);
 
   // Search query
   const { data: searchResults, isLoading, error } = useQuery({
@@ -45,6 +53,7 @@ const SearchPage: React.FC = () => {
   });
 
   const handleSearch = (data: SearchFormData) => {
+    console.log('Search form submitted with data:', data);
     setSearchQuery(data.query);
     setUseRegex(data.useRegex || false);
   };
@@ -74,12 +83,16 @@ const SearchPage: React.FC = () => {
 
       {/* Search Form */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <form onSubmit={handleSubmit(handleSearch)} className="space-y-4">
+        <form onSubmit={handleSubmit(handleSearch, (errors) => console.log('Form validation errors:', errors))} className="space-y-4">
           {/* Search input */}
           <Input
-            label="Search query"
             placeholder="Search for activities..."
-            {...register('query', { required: true })}
+            {...register('query', { required: 'Search query is required' })}
+            ref={(e) => {
+              register('query').ref(e);
+              searchInputRef.current = e;
+            }}
+            error={errors.query?.message}
           />
 
           {/* Filters */}

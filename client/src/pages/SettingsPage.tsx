@@ -1,14 +1,87 @@
-import React from 'react';
-import { Settings, User, Shield, Database, Info } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings, User, Shield, Database, Info, RefreshCw, Smartphone, LogOut } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useUIStore } from '../store/uiStore';
 import { useOfflineStore } from '../store/offlineStore';
 import Button from '../components/Button';
+import toast from 'react-hot-toast';
 
 const SettingsPage: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const { theme, privacyMode, toggleTheme, togglePrivacyMode } = useUIStore();
   const { pendingSlices, syncPendingSlices } = useOfflineStore();
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Check for PWA updates
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        setUpdateAvailable(true);
+      });
+
+      // Check for updates periodically
+      const checkForUpdates = () => {
+        navigator.serviceWorker.getRegistration().then((registration) => {
+          if (registration) {
+            registration.update();
+          }
+        });
+      };
+
+      // Check for updates every 30 seconds
+      const updateInterval = setInterval(checkForUpdates, 30000);
+      
+      return () => clearInterval(updateInterval);
+    }
+  }, []);
+
+  const handleAppReload = async () => {
+    setIsRefreshing(true);
+    
+    try {
+      // Clear all caches
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(
+          cacheNames.map(cacheName => caches.delete(cacheName))
+        );
+      }
+
+      // Unregister and re-register service worker
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration) {
+          await registration.unregister();
+        }
+        
+        // Wait a bit then reload
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else {
+        window.location.reload();
+      }
+
+      toast.success('App will reload with latest version...');
+    } catch (error) {
+      console.error('Failed to reload app:', error);
+      toast.error('Failed to reload app');
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleLogout = () => {
+    if (window.confirm('Are you sure you want to logout?')) {
+      logout();
+    }
+  };
+
+  const isPWA = () => {
+    return window.matchMedia('(display-mode: standalone)').matches ||
+           (window.navigator as any).standalone ||
+           document.referrer.includes('android-app://');
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -49,6 +122,28 @@ const SettingsPage: React.FC = () => {
             <p className="text-gray-900 dark:text-white">
               {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
             </p>
+          </div>
+
+          <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                  Account Actions
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Logout from your account
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleLogout}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+              >
+                <LogOut className="w-4 h-4 mr-1" />
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -96,6 +191,58 @@ const SettingsPage: React.FC = () => {
               onClick={togglePrivacyMode}
             >
               {privacyMode ? 'Disable' : 'Enable'}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* PWA Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <div className="flex items-center space-x-3 mb-4">
+          <Smartphone className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            App Management
+          </h2>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                App Mode
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {isPWA() ? 'Running as installed PWA' : 'Running in browser'}
+              </p>
+            </div>
+            {isPWA() && (
+              <span className="px-2 py-1 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 rounded-full text-xs">
+                PWA
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                Reload App
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {updateAvailable ? 'Update available! Reload to get the latest version.' : 'Force reload app and clear cache'}
+              </p>
+            </div>
+            <Button
+              variant={updateAvailable ? "primary" : "secondary"}
+              size="sm"
+              onClick={handleAppReload}
+              disabled={isRefreshing}
+              className={updateAvailable ? "animate-pulse" : ""}
+            >
+              {isRefreshing ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                'Reload App'
+              )}
             </Button>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Calendar, Filter, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Calendar, Filter, RefreshCw, ChevronLeft, ChevronRight, Home } from 'lucide-react';
 import { format, startOfDay, endOfDay, addDays, subDays } from 'date-fns';
 import { useUIStore } from '../store/uiStore';
 import { useOfflineStore } from '../store/offlineStore';
@@ -158,59 +158,56 @@ const HomePage: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-1">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-1">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={goToPreviousDay}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <input
+            type="date"
+            value={format(selectedDate, 'yyyy-MM-dd')}
+            onChange={(e) => setSelectedDate(new Date(e.target.value))}
+            className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={goToNextDay}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+          {!isToday && (
             <Button
               variant="secondary"
               size="sm"
-              onClick={goToPreviousDay}
+              onClick={goToToday}
+              title="Go to Today"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <Home className="w-4 h-4" />
             </Button>
-            <input
-              type="date"
-              value={format(selectedDate, 'yyyy-MM-dd')}
-              onChange={(e) => setSelectedDate(new Date(e.target.value))}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-            />
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={goToNextDay}
-            >
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-            {!isToday && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={goToToday}
-              >
-                Today
-              </Button>
-            )}
-          </div>
-          <p className="text-gray-600 dark:text-gray-400">
-            {displaySlices.length} {displaySlices.length === 1 ? 'slice' : 'slices'}
-          </p>
+          )}
         </div>
         
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-1">
           <Button
             variant="secondary"
             size="sm"
             onClick={handleRefresh}
             disabled={isLoading}
+            title="Refresh"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
           <Button
             size="sm"
             onClick={() => setShowAddModal(true)}
+            title="Add Slice"
           >
-            <Plus className="w-4 h-4 mr-1" />
-            Add Slice
+            <Plus className="w-4 h-4" />
           </Button>
         </div>
       </div>

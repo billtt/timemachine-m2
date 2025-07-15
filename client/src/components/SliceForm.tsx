@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { format } from 'date-fns';
 import { Calendar, Clock, Type } from 'lucide-react';
@@ -12,6 +12,7 @@ const SliceForm: React.FC<SliceFormProps> = ({
   onCancel,
   isLoading = false
 }) => {
+  const contentRef = useRef<HTMLTextAreaElement>(null);
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<SliceFormData>({
     defaultValues: {
       content: slice?.content || '',
@@ -38,6 +39,13 @@ const SliceForm: React.FC<SliceFormProps> = ({
     }
   }, [slice, setValue]);
 
+  // Auto-focus content textarea when form loads
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.focus();
+    }
+  }, []);
+
   const handleFormSubmit = (data: SliceFormData) => {
     // Combine date and time
     const combinedDateTime = new Date(`${selectedDate}T${selectedTime}`);
@@ -60,6 +68,10 @@ const SliceForm: React.FC<SliceFormProps> = ({
         </label>
         <textarea
           {...register('content', { required: 'Content is required' })}
+          ref={(e) => {
+            register('content').ref(e);
+            contentRef.current = e;
+          }}
           rows={4}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           placeholder="Describe your activity..."
@@ -73,29 +85,29 @@ const SliceForm: React.FC<SliceFormProps> = ({
 
 
       {/* Date and Time */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            <Calendar className="inline w-4 h-4 mr-1" />
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <Calendar className="inline w-3 h-3 mr-1" />
             Date
           </label>
           <input
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+            className="w-full px-2 py-2 text-sm border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            <Clock className="inline w-4 h-4 mr-1" />
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <Clock className="inline w-3 h-3 mr-1" />
             Time
           </label>
           <input
             type="time"
             value={selectedTime}
             onChange={(e) => setSelectedTime(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+            className="w-full px-2 py-2 text-sm border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           />
         </div>
       </div>
