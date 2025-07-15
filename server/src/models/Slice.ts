@@ -4,7 +4,7 @@ import { SliceType, SLICE_TYPES } from '../types/shared';
 export interface ISlice extends Document {
   content: string;
   type: SliceType;
-  user: mongoose.Types.ObjectId;
+  user: string;  // Changed from ObjectId to string (username)
   time: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -26,9 +26,9 @@ const sliceSchema = new Schema<ISlice>(
       default: 'other'
     },
     user: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: true
+      type: String,
+      required: true,
+      trim: true
     },
     time: {
       type: Date,

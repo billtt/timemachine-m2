@@ -12,7 +12,7 @@ export const createSlice = asyncHandler(async (req: AuthenticatedRequest, res: R
     content,
     type,
     time: time ? new Date(time) : new Date(),
-    user: req.user.id
+    user: req.user.username  // Use username instead of user ID
   });
 
   await slice.save();
@@ -39,13 +39,8 @@ export const getSlices = asyncHandler(async (req: AuthenticatedRequest, res: Res
     search
   });
 
-  // Build query - handle both v1.0 (username) and v2.0 (user ID) formats
-  const query: any = { 
-    $or: [
-      { user: req.user.id },        // v2.0 format (ObjectId)
-      { user: req.user.username }   // v1.0 format (username string)
-    ]
-  };
+  // Build query using username (compatible with v1.0 data)
+  const query: any = { user: req.user.username };
 
   // Date range filter
   if (startDate || endDate) {
@@ -120,10 +115,7 @@ export const getSlice = asyncHandler(async (req: AuthenticatedRequest, res: Resp
 
   const slice = await Slice.findOne({ 
     _id: id, 
-    $or: [
-      { user: req.user.id },        // v2.0 format (ObjectId)
-      { user: req.user.username }   // v1.0 format (username string)
-    ]
+    user: req.user.username
   });
   if (!slice) {
     throw createError('Slice not found', 404);
@@ -141,10 +133,7 @@ export const updateSlice = asyncHandler(async (req: AuthenticatedRequest, res: R
 
   const slice = await Slice.findOne({ 
     _id: id, 
-    $or: [
-      { user: req.user.id },        // v2.0 format (ObjectId)
-      { user: req.user.username }   // v1.0 format (username string)
-    ]
+    user: req.user.username
   });
   if (!slice) {
     throw createError('Slice not found', 404);
@@ -169,10 +158,7 @@ export const deleteSlice = asyncHandler(async (req: AuthenticatedRequest, res: R
 
   const slice = await Slice.findOne({ 
     _id: id, 
-    $or: [
-      { user: req.user.id },        // v2.0 format (ObjectId)
-      { user: req.user.username }   // v1.0 format (username string)
-    ]
+    user: req.user.username
   });
   if (!slice) {
     throw createError('Slice not found', 404);
@@ -180,10 +166,7 @@ export const deleteSlice = asyncHandler(async (req: AuthenticatedRequest, res: R
 
   await Slice.deleteOne({ 
     _id: id, 
-    $or: [
-      { user: req.user.id },        // v2.0 format (ObjectId)
-      { user: req.user.username }   // v1.0 format (username string)
-    ]
+    user: req.user.username
   });
 
   res.json({
@@ -278,13 +261,8 @@ export const searchSlices = asyncHandler(async (req: AuthenticatedRequest, res: 
     });
   }
 
-  // Build query - handle both v1.0 (username) and v2.0 (user ID) formats
-  const query: any = { 
-    $or: [
-      { user: req.user.id },        // v2.0 format (ObjectId)
-      { user: req.user.username }   // v1.0 format (username string)
-    ]
-  };
+  // Build query using username (compatible with v1.0 data)
+  const query: any = { user: req.user.username };
 
   // Type filter
   if (type) {
@@ -360,12 +338,9 @@ export const searchSlices = asyncHandler(async (req: AuthenticatedRequest, res: 
 export const getSliceStats = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { startDate, endDate } = req.query;
 
-  // Build date filter - handle both v1.0 (username) and v2.0 (user ID) formats
+  // Build date filter using username
   const dateFilter: any = { 
-    $or: [
-      { user: req.user.id },        // v2.0 format (ObjectId)
-      { user: req.user.username }   // v1.0 format (username string)
-    ]
+    user: req.user.username
   };
   if (startDate || endDate) {
     dateFilter.time = {};
