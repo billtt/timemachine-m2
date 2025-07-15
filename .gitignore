@@ -309,3 +309,7 @@ workbox-*.js
 
 # Generated files
 *.generated.*
+
+# Production environment files (keep these local)
+server/.env.production
+client/.env.production
