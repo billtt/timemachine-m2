@@ -10,6 +10,7 @@ export interface IUser extends Document {
   token?: string;
   createdAt: Date;
   updatedAt: Date;
+  _passwordAlreadyHashed?: boolean; // Internal flag to prevent double-hashing
   comparePassword(candidatePassword: string): Promise<boolean>; // eslint-disable-line no-unused-vars
 }
 
@@ -66,6 +67,12 @@ userSchema.index({ email: 1 });
 userSchema.pre('save', async function(next) {
   // Only hash if password is modified and exists
   if (!this.isModified('password') || !this.password) return next();
+  
+  // Skip hashing if password is already hashed (during manual upgrades)
+  if (this._passwordAlreadyHashed) {
+    delete this._passwordAlreadyHashed; // Clear the flag
+    return next();
+  }
   
   try {
     const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || '12');
@@ -134,6 +141,9 @@ userSchema.methods.comparePassword = async function(candidatePassword: string): 
           const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || '12');
           this.password = await bcrypt.hash(candidatePassword, saltRounds);
           this.key = null; // Clear legacy field
+          
+          // Set flag to prevent double-hashing in pre-save hook
+          this._passwordAlreadyHashed = true;
           
           console.log('About to save user with new password...');
           await this.save();
