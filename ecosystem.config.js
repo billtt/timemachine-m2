@@ -10,7 +10,7 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: 3003,
         MONGODB_URI: 'mongodb://127.0.0.1:27017/time',
-        // JWT_SECRET will be set via environment or .env file
+        JWT_SECRET: 'CHANGE-THIS-TO-A-SECURE-SECRET-KEY-IN-PRODUCTION',
         JWT_EXPIRES_IN: '7d',
         BCRYPT_ROUNDS: '12',
         CORS_ORIGIN: 'https://time2.bill.tt'
@@ -19,6 +19,7 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: 3003,
         MONGODB_URI: 'mongodb://127.0.0.1:27017/time',
+        JWT_SECRET: 'CHANGE-THIS-TO-A-SECURE-SECRET-KEY-IN-PRODUCTION',
         JWT_EXPIRES_IN: '7d',
         BCRYPT_ROUNDS: '12',
         CORS_ORIGIN: 'https://time2.bill.tt'
