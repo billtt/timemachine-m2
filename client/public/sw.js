@@ -1,5 +1,5 @@
 // PWA Service Worker for TimeMachine
-const CACHE_NAME = 'timemachine-v3';
+const CACHE_NAME = 'timemachine-v4';
 const urlsToCache = [
   '/',
   './manifest.json',
@@ -39,6 +39,17 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - serve from cache when offline
 self.addEventListener('fetch', (event) => {
+  // Skip API requests - let them go directly to the network
+  if (event.request.url.includes('/api/')) {
+    return;
+  }
+  
+  // Skip non-GET requests (POST, PUT, DELETE, etc.)
+  if (event.request.method !== 'GET') {
+    return;
+  }
+  
+  // Only handle GET requests for static assets and navigation
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
