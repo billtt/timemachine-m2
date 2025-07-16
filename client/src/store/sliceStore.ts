@@ -6,6 +6,13 @@ import operationQueue from '../services/operationQueue';
 import { v4 as uuidv4 } from 'uuid';
 import toast from 'react-hot-toast';
 
+// Global query client reference for cache invalidation
+let queryClient: any = null;
+
+export const setQueryClient = (client: any) => {
+  queryClient = client;
+};
+
 interface SliceWithStatus extends Slice {
   pending?: boolean;
   tempId?: string | undefined;
@@ -32,6 +39,24 @@ export const useSliceStore = create<SliceStore>((set, get) => ({
   },
 
   addSliceOptimistically: async (data: SliceFormData) => {
+    const currentState = get();
+    
+    // Check for duplicate slices to prevent network issues from creating duplicates
+    const isDuplicate = currentState.slices.some(slice => {
+      const timeDiff = Math.abs(new Date(slice.time).getTime() - data.time.getTime());
+      return (
+        slice.content === data.content &&
+        slice.type === data.type &&
+        timeDiff < 5000 && // Within 5 seconds
+        (slice.pending || slice.tempId) // Either pending or has tempId
+      );
+    });
+    
+    if (isDuplicate) {
+      console.log('Duplicate slice detected, skipping creation');
+      return 'duplicate';
+    }
+
     const tempId = uuidv4();
     const optimisticSlice: SliceWithStatus = {
       id: tempId,
@@ -250,6 +275,11 @@ operationQueue.onOperationSuccess((_operationId, tempId, result) => {
       markSliceAsCompleted(tempId, result.slice);
     } else {
       markSliceAsCompleted(tempId);
+    }
+    
+    // Invalidate React Query cache for all slice queries
+    if (queryClient) {
+      queryClient.invalidateQueries({ queryKey: ['slices'] });
     }
   }
 });

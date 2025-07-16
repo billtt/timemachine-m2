@@ -4,7 +4,7 @@
   "description": "TimeMachine backend server",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "NODE_ENV=development tsx watch --env-file=.env.dev src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "jest",

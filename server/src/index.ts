@@ -3,8 +3,16 @@ import app from './app';
 import { connectDatabase } from './config/database';
 
 // Load environment variables
-// Try multiple env file locations
-const envFiles = [
+// Try multiple env file locations based on NODE_ENV
+const isDevelopment = process.env.NODE_ENV === 'development';
+const envFiles = isDevelopment ? [
+  '.env.dev',
+  '.env.development',
+  '.env',
+  'server/.env.dev',
+  'server/.env.development',
+  'server/.env'
+] : [
   '.env.production',
   '.env',
   'server/.env.production',

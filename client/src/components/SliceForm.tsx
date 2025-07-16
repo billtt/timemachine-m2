@@ -12,6 +12,7 @@ const SliceForm: React.FC<SliceFormProps> = ({
   isLoading = false
 }) => {
   const contentRef = useRef<HTMLTextAreaElement>(null);
+  const lastSubmissionRef = useRef<number>(0);
   const { register, handleSubmit, formState: { errors }, setValue } = useForm<SliceFormData>({
     defaultValues: {
       content: slice?.content || '',
@@ -46,6 +47,14 @@ const SliceForm: React.FC<SliceFormProps> = ({
   }, []);
 
   const handleFormSubmit = (data: SliceFormData) => {
+    // Prevent rapid successive submissions (debounce)
+    const now = Date.now();
+    if (now - lastSubmissionRef.current < 1000) {
+      console.log('Submission debounced - too soon after last submission');
+      return;
+    }
+    lastSubmissionRef.current = now;
+    
     // Combine date and time
     const combinedDateTime = new Date(`${selectedDate}T${selectedTime}`);
     

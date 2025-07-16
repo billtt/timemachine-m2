@@ -313,3 +313,4 @@ workbox-*.js
 # Production environment files (keep these local)
 server/.env.production
 client/.env.production
+server/.env.dev

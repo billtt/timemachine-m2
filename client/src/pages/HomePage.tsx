@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Calendar, RefreshCw, ChevronLeft, ChevronRight, Home } from 'lucide-react';
 import { format, startOfDay, endOfDay, addDays, subDays } from 'date-fns';
 import { useUIStore } from '../store/uiStore';
@@ -27,6 +27,7 @@ const HomePage: React.FC = () => {
     updateSliceOptimistically, 
     deleteSliceOptimistically 
   } = useSliceStore();
+  const queryClient = useQueryClient();
 
   // Fetch slices for selected date
   const { data: slicesData, isLoading, error, refetch } = useQuery({
@@ -71,8 +72,10 @@ const HomePage: React.FC = () => {
     mutationFn: async (data: SliceFormData) => {
       return await addSliceOptimistically(data);
     },
-    onSuccess: () => {
-      setShowAddModal(false);
+    onSuccess: (result) => {
+      if (result !== 'duplicate') {
+        setShowAddModal(false);
+      }
     },
     onError: (error: any) => {
       console.error('Failed to create slice:', error);
@@ -136,7 +139,9 @@ const HomePage: React.FC = () => {
     setEditingSlice(slice);
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
+    // Invalidate all slice queries to force fresh data
+    await queryClient.invalidateQueries({ queryKey: ['slices'] });
     refetch();
     if (isOnline) {
       processOperations();
@@ -152,14 +157,20 @@ const HomePage: React.FC = () => {
 
   const goToPreviousDay = () => {
     setSelectedDate(subDays(selectedDate, 1));
+    // Invalidate cache for the new date
+    queryClient.invalidateQueries({ queryKey: ['slices'] });
   };
 
   const goToNextDay = () => {
     setSelectedDate(addDays(selectedDate, 1));
+    // Invalidate cache for the new date
+    queryClient.invalidateQueries({ queryKey: ['slices'] });
   };
 
   const goToToday = () => {
     setSelectedDate(new Date());
+    // Invalidate cache for today
+    queryClient.invalidateQueries({ queryKey: ['slices'] });
   };
 
   return (
@@ -177,7 +188,11 @@ const HomePage: React.FC = () => {
           <input
             type="date"
             value={format(selectedDate, 'yyyy-MM-dd')}
-            onChange={(e) => setSelectedDate(new Date(e.target.value))}
+            onChange={(e) => {
+              setSelectedDate(new Date(e.target.value));
+              // Invalidate cache for the new date
+              queryClient.invalidateQueries({ queryKey: ['slices'] });
+            }}
             className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           />
           <Button
