@@ -294,9 +294,10 @@ build/
 .yarn/install-state.gz
 .pnp.*
 
-# PWA files that might be auto-generated
-sw.js
 workbox-*.js
+# Only ignore auto-generated service workers in build directories
+dist/sw.js
+build/sw.js
 
 # Lock files (optional - you may want to keep these)
 # package-lock.json
@@ -313,4 +314,7 @@ workbox-*.js
 # Production environment files (keep these local)
 server/.env.production
 client/.env.production
+server/.env.dev
+# server/.env.dev  # Commented out - development env file can be committed
+client/dev-dist
 server/.env.dev
