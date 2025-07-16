@@ -107,25 +107,48 @@ cd client && npm run typecheck
 
 ## Environment Setup
 
-### Required Environment Variables
-Server (.env):
+### Environment Files
+- **Development**: `server/.env.dev` (automatically loaded when running `npm run dev`)
+- **Production**: `server/.env.production` (loaded in production deployment)
+- **Client**: `client/.env` (loaded by Vite in all modes)
+
+### Development Environment Variables
+Server (.env.dev):
 ```
-PORT=5000
+PORT=3001
+NODE_ENV=development
 MONGODB_URI=mongodb://127.0.0.1:27017/time
-JWT_SECRET=your-secret-key
+JWT_SECRET=dev-secret-key-change-in-production-super-long-secret
 JWT_EXPIRES_IN=7d
 BCRYPT_ROUNDS=12
-CORS_ORIGIN=http://localhost:3000
+CORS_ORIGIN=http://localhost:3000,http://192.168.50.236:3000,http://127.0.0.1:3000
 ```
 
-Client (.env - optional):
+Client (.env):
 ```
-VITE_API_URL=http://localhost:5000/api
+VITE_PWA_NAME=TimeMachine
+VITE_PWA_SHORT_NAME=TimeMachine
+VITE_PWA_DESCRIPTION=Personal life tracking app
+VITE_DEV_TOOLS=true
+```
+
+### Production Environment Variables
+Server (.env.production):
+```
+PORT=3003
+NODE_ENV=production
+MONGODB_URI=mongodb://127.0.0.1:27017/time
+JWT_SECRET=your-production-secret-key
+JWT_EXPIRES_IN=7d
+BCRYPT_ROUNDS=12
+CORS_ORIGIN=https://time2.bill.tt
 ```
 
 ### Database
 - MongoDB with database name "time" (compatible with v1.0)
-- Automatic schema migration from existing v1.0 data
+- **Backward Compatibility**: v2.0 maintains compatibility with v1.0 data structure
+- **Authentication**: Supports both MD5 (v1.0) and bcrypt (v2.0) passwords with automatic upgrade
+- **Slice References**: Uses username strings instead of ObjectIds for v1.0 compatibility
 - Indexes optimized for user queries by time and type
 
 ## Development Notes
@@ -167,3 +190,109 @@ VITE_API_URL=http://localhost:5000/api
 - Server logs are structured with timestamp and request info
 - Client errors are captured and displayed via toast notifications
 - Check browser DevTools for PWA/service worker issues
+
+## Production Deployment
+
+### Server Configuration
+- **Domain**: https://time2.bill.tt
+- **Port**: 3003
+- **Directory**: /data/time2
+- **Process Manager**: PM2 (configured in ecosystem.config.js)
+
+### Nginx Configuration
+- Static files served directly from `/data/time2/client/dist`
+- API routes (`/api/*`) proxied to Node.js backend on port 3003
+- **Service Worker**: Special handling for `/sw.js` with no-cache headers
+- **PWA Support**: Proper manifest.json and icon handling
+- **Security**: HTTPS, security headers, rate limiting
+
+### Deployment Process
+```bash
+# On server
+cd /data/time2
+git pull origin master
+npm run build
+pm2 restart time2
+```
+
+## Recent Bug Fixes & Improvements
+
+### 1. Duplicate Slice Prevention
+- **Issue**: Network issues/idle sessions causing duplicate slice creation
+- **Fix**: Added duplicate detection in SliceStore and form submission debouncing
+- **Location**: `client/src/store/sliceStore.ts`, `client/src/components/SliceForm.tsx`
+
+### 2. Cache Invalidation
+- **Issue**: Slice cache not updating after Add/Edit/Delete operations
+- **Fix**: Implemented proper React Query cache invalidation on CRUD operations
+- **Location**: `client/src/store/sliceStore.ts`, `client/src/pages/HomePage.tsx`
+
+### 3. Service Worker Issues
+- **Issue**: `/sw.js` returning 404 in production
+- **Root Cause**: Service worker was gitignored and nginx was caching it
+- **Fix**: Updated .gitignore to allow manual service worker, added nginx no-cache config
+- **Location**: `.gitignore`, `nginx.conf`
+
+### 4. Environment Configuration
+- **Issue**: Development needed separate environment config
+- **Fix**: Added `.env.dev` support with automatic loading in development
+- **Location**: `server/package.json`, `server/src/index.ts`
+
+### 5. Password Migration
+- **Issue**: v1.0 users couldn't login after deployment
+- **Fix**: Implemented MD5 to bcrypt password upgrade system
+- **Location**: `server/src/models/User.ts`, `server/src/controllers/authController.ts`
+
+### 6. Database Compatibility
+- **Issue**: v1.0 slices not loading due to user field mismatch
+- **Fix**: Changed slice.user from ObjectId to username string
+- **Location**: `server/src/models/Slice.ts`, `server/src/controllers/sliceController.ts`
+
+## Security Features
+
+### CSRF Protection
+- **Implementation**: Double-submit cookie pattern
+- **Coverage**: All state-changing API requests
+- **Location**: `server/src/middleware/csrf.ts`, `client/src/services/csrf.ts`
+
+### Authentication Security
+- **JWT**: Secure token-based authentication
+- **Password Hashing**: bcrypt with 12 rounds
+- **Rate Limiting**: API endpoint protection
+- **CORS**: Configured for production domain
+
+### Input Validation
+- **Server**: Zod schema validation
+- **Client**: React Hook Form validation
+- **XSS Prevention**: Content escaping and CSP headers
+- **SQL Injection**: MongoDB parameterized queries
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Service Worker Not Loading**
+   - Check nginx configuration for `/sw.js` no-cache headers
+   - Verify `client/dist/sw.js` exists after build
+   - Clear browser cache and service worker registration
+
+2. **JWT Token Issues**
+   - Verify JWT_SECRET is set in environment
+   - Check token expiration (7 days default)
+   - Ensure CORS headers allow credentials
+
+3. **Database Connection**
+   - Verify MongoDB is running on port 27017
+   - Check MONGODB_URI in environment files
+   - Ensure database name is "time" for v1.0 compatibility
+
+4. **Build Issues**
+   - Run `npm run typecheck` to check TypeScript errors
+   - Ensure all dependencies are installed with `npm run install:all`
+   - Check for missing environment variables
+
+### Development Tips
+- Use `npm run dev` for development with hot reload
+- Check server logs for environment variable loading
+- Use browser DevTools for PWA debugging
+- Run tests with `npm test` before deployment
