@@ -18,6 +18,7 @@ const HomePage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingSlice, setEditingSlice] = useState<Slice | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { privacyMode, isOnline } = useUIStore();
   const { syncPendingSlices, loadPendingOperations, processOperations } = useOfflineStore();
   const { 
@@ -140,16 +141,21 @@ const HomePage: React.FC = () => {
   };
 
   const handleRefresh = async () => {
-    // Process any pending operations first
-    if (isOnline) {
-      processOperations();
-      syncPendingSlices();
+    setIsRefreshing(true);
+    try {
+      // Process any pending operations first
+      if (isOnline) {
+        processOperations();
+        syncPendingSlices();
+      }
+      
+      // Invalidate and refetch slice queries for the current date only
+      await queryClient.invalidateQueries({ 
+        queryKey: ['slices', format(selectedDate, 'yyyy-MM-dd')] 
+      });
+    } finally {
+      setIsRefreshing(false);
     }
-    
-    // Invalidate and refetch slice queries for the current date only
-    await queryClient.invalidateQueries({ 
-      queryKey: ['slices', format(selectedDate, 'yyyy-MM-dd')] 
-    });
   };
 
   const displaySlices = slices.filter(slice => {
@@ -212,10 +218,10 @@ const HomePage: React.FC = () => {
             variant="secondary"
             size="sm"
             onClick={handleRefresh}
-            disabled={isLoading}
+            disabled={isLoading || isRefreshing}
             title="Refresh"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isLoading || isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
           <Button
             size="sm"
