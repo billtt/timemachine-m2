@@ -296,3 +296,16 @@ pm2 restart time2
 - Check server logs for environment variable loading
 - Use browser DevTools for PWA debugging
 - Run tests with `npm test` before deployment
+
+## Code Assistant Rules
+
+### 1. File Creation Guidelines
+- **DO NOT** create unnecessary documentation files (*.md) for fixes or instructions unless explicitly requested
+- **DO NOT** create separate instruction files when the solution can be explained in the response
+- **ONLY** create documentation files when user specifically asks for documentation
+
+### 2. Build Verification
+- **ALWAYS** run `npm run build` after modifying any TypeScript files or build scripts
+- **MUST** fix any build errors before completing the task
+- **TEST** type checking with `npm run typecheck` when changing TypeScript code
+- **VERIFY** both client and server builds pass successfully
