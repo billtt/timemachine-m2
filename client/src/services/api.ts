@@ -20,6 +20,9 @@ import csrfService from './csrf';
 class ApiService {
   private api: AxiosInstance;
   private baseURL: string;
+  private csrfRefreshPromise: Promise<void> | null = null;
+  private retryingRequests = new Set<string>();
+  private activeRequests = new Map<string, Promise<any>>();
 
   constructor() {
     // Always use relative URL - Vite proxy will handle routing to backend
@@ -72,13 +75,42 @@ class ApiService {
           // Handle CSRF errors
           const errorCode = error.response?.data?.code;
           if (errorCode === 'CSRF_TOKEN_MISSING' || errorCode === 'CSRF_TOKEN_INVALID') {
-            // Try to refresh CSRF token and retry the request once
+            // Create a unique key for this request to prevent duplicate retries
+            const requestKey = `${error.config.method}:${error.config.url}:${JSON.stringify(error.config.data)}`;
+            
+            // If this exact request is already being retried, don't retry again
+            if (this.retryingRequests.has(requestKey)) {
+              console.log('Request already being retried, skipping duplicate retry');
+              return Promise.reject(error);
+            }
+            
+            // Mark this request as being retried
+            this.retryingRequests.add(requestKey);
+            
             try {
-              await csrfService.refreshToken();
+              // Coordinate CSRF token refresh to prevent multiple simultaneous refreshes
+              if (!this.csrfRefreshPromise) {
+                this.csrfRefreshPromise = csrfService.refreshToken()
+                  .finally(() => {
+                    this.csrfRefreshPromise = null;
+                  });
+              }
+              
+              // Wait for CSRF token refresh to complete
+              await this.csrfRefreshPromise;
+              
               // Retry the original request
-              return this.api.request(error.config);
+              const response = await this.api.request(error.config);
+              
+              // Clean up retry tracking
+              this.retryingRequests.delete(requestKey);
+              
+              return response;
             } catch (csrfError) {
+              // Clean up retry tracking
+              this.retryingRequests.delete(requestKey);
               toast.error('Security validation failed. Please refresh the page.');
+              return Promise.reject(csrfError);
             }
           }
         } else if (error.response?.status >= 500) {
@@ -100,6 +132,30 @@ class ApiService {
   }
 
   private async request<T>(config: AxiosRequestConfig): Promise<T> {
+    // Create a unique key for request deduplication
+    const requestKey = `${config.method}:${config.url}:${JSON.stringify(config.data)}`;
+    
+    // If this exact request is already in progress, return the existing promise
+    if (this.activeRequests.has(requestKey)) {
+      console.log('Deduplicating identical request:', requestKey);
+      return this.activeRequests.get(requestKey)!;
+    }
+    
+    // Create new request promise
+    const requestPromise = this.executeRequest<T>(config);
+    
+    // Store the promise for deduplication
+    this.activeRequests.set(requestKey, requestPromise);
+    
+    // Clean up after request completes (success or failure)
+    requestPromise.finally(() => {
+      this.activeRequests.delete(requestKey);
+    });
+    
+    return requestPromise;
+  }
+  
+  private async executeRequest<T>(config: AxiosRequestConfig): Promise<T> {
     try {
       const response = await this.api.request<ApiResponse<T>>(config);
       return response.data.data as T;

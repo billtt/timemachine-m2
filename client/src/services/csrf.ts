@@ -73,7 +73,35 @@ class CSRFService {
     this.clearToken();
     return this.getToken();
   }
+
+  /**
+   * DEBUG: Force clear token for testing
+   * @description Use this in browser console to test CSRF expiration
+   */
+  debugClearToken() {
+    console.log('[DEBUG] Clearing CSRF token for testing');
+    this.clearToken();
+    // Also try to clear server-side cookie
+    document.cookie = 'csrf-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+  }
+
+  /**
+   * DEBUG: Get current token state
+   */
+  debugGetTokenState() {
+    return {
+      hasToken: !!this.csrfToken,
+      token: this.csrfToken ? `${this.csrfToken.substring(0, 10)}...` : null,
+      isFetching: !!this.tokenPromise
+    };
+  }
 }
 
 export const csrfService = new CSRFService();
+
+// Expose to window for debugging in production
+if (typeof window !== 'undefined') {
+  (window as any).__csrfService = csrfService;
+}
+
 export default csrfService;
