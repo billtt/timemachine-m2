@@ -158,7 +158,7 @@ export interface RegisterFormData extends LoginFormData {
 }
 
 export interface SearchFormData {
-  query: string;
+  query?: string;
   type?: SliceType;
   startDate?: Date;
   endDate?: Date;

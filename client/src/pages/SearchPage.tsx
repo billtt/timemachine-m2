@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Search } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { Search, Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useUIStore } from '../store/uiStore';
 import { SearchFormData } from '../types';
@@ -26,19 +26,28 @@ const SearchPage: React.FC = () => {
     }
   }, []);
 
-  // Search query
-  const { data: searchResults, isLoading, error } = useQuery({
+  // Infinite search query
+  const {
+    data: searchResults,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    error,
+  } = useInfiniteQuery({
     queryKey: ['search', searchQuery, useRegex],
-    queryFn: async () => {
-      if (!searchQuery.trim()) return { slices: [], total: 0 };
+    queryFn: async ({ pageParam = 1 }) => {
+      if (!searchQuery.trim()) return { slices: [], total: 0, pagination: { page: 1, limit: 50, total: 0, pages: 1 } };
       
       if (isOnline) {
         return apiService.searchSlices({
           q: searchQuery,
-          useRegex
+          useRegex,
+          page: pageParam,
+          limit: 50
         });
       } else {
-        // Search in offline cache
+        // Search in offline cache (no pagination for offline)
         const results = await offlineStorage.searchCachedSlices(searchQuery);
         return {
           slices: results,
@@ -47,12 +56,16 @@ const SearchPage: React.FC = () => {
         };
       }
     },
+    getNextPageParam: (lastPage) => {
+      const { page, pages } = lastPage.pagination;
+      return page < pages ? page + 1 : undefined;
+    },
     enabled: searchQuery.trim().length > 0,
     refetchOnWindowFocus: false,
   });
 
   const handleSearch = (data: SearchFormData) => {
-    setSearchQuery(data.query);
+    setSearchQuery(data.query || '');
     setUseRegex(data.useRegex || false);
   };
 
@@ -62,7 +75,22 @@ const SearchPage: React.FC = () => {
     reset();
   };
 
-  const slices = searchResults?.slices || [];
+  // Flatten all pages into a single array of slices
+  const allSlices = searchResults?.pages.flatMap(page => page.slices) || [];
+  const totalResults = searchResults?.pages[0]?.total || 0;
+
+  // Infinite scroll detection
+  const observer = useRef<IntersectionObserver>();
+  const lastSliceElementRef = useCallback((node: HTMLDivElement) => {
+    if (isLoading) return;
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+      }
+    });
+    if (node) observer.current.observe(node);
+  }, [isLoading, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -86,7 +114,6 @@ const SearchPage: React.FC = () => {
           <Input
             placeholder="Search for activities..."
             {...register('query', { 
-              required: 'Search query is required',
               maxLength: {
                 value: 200,
                 message: 'Search query must be less than 200 characters'
@@ -145,7 +172,7 @@ const SearchPage: React.FC = () => {
               Search failed. Please try again.
             </p>
           </div>
-        ) : searchQuery && slices.length === 0 ? (
+        ) : searchQuery && allSlices.length === 0 ? (
           <div className="text-center py-8">
             <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
@@ -155,24 +182,63 @@ const SearchPage: React.FC = () => {
               Try different keywords or adjust your filters
             </p>
           </div>
-        ) : searchQuery && slices.length > 0 ? (
+        ) : searchQuery && allSlices.length > 0 ? (
           <div>
             <div className="mb-4">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Found {searchResults?.total || 0} results for "{searchQuery}"
+                Found {totalResults} results for "{searchQuery}"
               </p>
             </div>
             <div className="space-y-4">
-              {slices.map((slice) => (
-                <SliceItem
+              {allSlices.map((slice, index) => (
+                <div 
                   key={slice.id}
-                  slice={slice}
-                  onEdit={() => {}}
-                  onDelete={() => {}}
-                  privacyMode={privacyMode}
-                />
+                  ref={index === allSlices.length - 1 ? lastSliceElementRef : undefined}
+                >
+                  <SliceItem
+                    slice={slice}
+                    onEdit={() => {}}
+                    onDelete={() => {}}
+                    privacyMode={privacyMode}
+                  />
+                </div>
               ))}
             </div>
+            
+            {/* Loading indicator for infinite scroll */}
+            {isFetchingNextPage && (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-primary-600" />
+                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
+                  Loading more results...
+                </span>
+              </div>
+            )}
+            
+            {/* Manual load more button (fallback) */}
+            {hasNextPage && !isFetchingNextPage && allSlices.length >= 50 && (
+              <div className="flex justify-center py-8">
+                <Button
+                  onClick={() => fetchNextPage()}
+                  variant="secondary"
+                  className="text-sm"
+                >
+                  Load More Results
+                </Button>
+              </div>
+            )}
+            
+            {/* End of results indicator */}
+            {!hasNextPage && allSlices.length >= 50 && (
+              <div className="flex justify-center items-center py-8">
+                <div className="text-center">
+                  <div className="w-8 h-px bg-gray-300 dark:bg-gray-600 mx-auto mb-2"></div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    You've reached the end of the results
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center py-8">
