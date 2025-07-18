@@ -140,13 +140,16 @@ const HomePage: React.FC = () => {
   };
 
   const handleRefresh = async () => {
-    // Invalidate all slice queries to force fresh data
-    await queryClient.invalidateQueries({ queryKey: ['slices'] });
-    refetch();
+    // Process any pending operations first
     if (isOnline) {
       processOperations();
       syncPendingSlices();
     }
+    
+    // Invalidate and refetch slice queries for the current date only
+    await queryClient.invalidateQueries({ 
+      queryKey: ['slices', format(selectedDate, 'yyyy-MM-dd')] 
+    });
   };
 
   const displaySlices = slices.filter(slice => {
@@ -157,20 +160,14 @@ const HomePage: React.FC = () => {
 
   const goToPreviousDay = () => {
     setSelectedDate(subDays(selectedDate, 1));
-    // Invalidate cache for the new date
-    queryClient.invalidateQueries({ queryKey: ['slices'] });
   };
 
   const goToNextDay = () => {
     setSelectedDate(addDays(selectedDate, 1));
-    // Invalidate cache for the new date
-    queryClient.invalidateQueries({ queryKey: ['slices'] });
   };
 
   const goToToday = () => {
     setSelectedDate(new Date());
-    // Invalidate cache for today
-    queryClient.invalidateQueries({ queryKey: ['slices'] });
   };
 
   return (
@@ -188,11 +185,7 @@ const HomePage: React.FC = () => {
           <input
             type="date"
             value={format(selectedDate, 'yyyy-MM-dd')}
-            onChange={(e) => {
-              setSelectedDate(new Date(e.target.value));
-              // Invalidate cache for the new date
-              queryClient.invalidateQueries({ queryKey: ['slices'] });
-            }}
+            onChange={(e) => setSelectedDate(new Date(e.target.value))}
             className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
           />
           <Button
