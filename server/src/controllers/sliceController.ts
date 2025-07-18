@@ -28,15 +28,13 @@ export const getSlices = asyncHandler(async (req: AuthenticatedRequest, res: Res
   const { page = 1, limit = 50, startDate, endDate, type, search } = req.query as any;
 
   // Debug logging
-  console.log('getSlices called for user:', {
-    userId: req.user.id,
-    username: req.user.username,
+  console.log('getSlices called:', {
     page,
     limit,
     startDate,
     endDate,
     type,
-    search
+    hasSearch: !!search
   });
 
   // Build query using username (compatible with v1.0 data)
@@ -72,7 +70,7 @@ export const getSlices = asyncHandler(async (req: AuthenticatedRequest, res: Res
   const skip = (page - 1) * limit;
   
   console.log('Executing slice query:', {
-    query,
+    queryFields: Object.keys(query),
     skip,
     limit
   });
@@ -88,12 +86,7 @@ export const getSlices = asyncHandler(async (req: AuthenticatedRequest, res: Res
   console.log('Query results:', {
     foundSlices: slices.length,
     totalSlices: total,
-    firstSlice: slices[0] ? {
-      id: slices[0].id,
-      content: slices[0].content.substring(0, 50) + '...',
-      user: slices[0].user,
-      time: slices[0].time
-    } : null
+    hasResults: slices.length > 0
   });
 
   res.json({

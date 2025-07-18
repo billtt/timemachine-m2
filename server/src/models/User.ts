@@ -93,12 +93,10 @@ function encodePasswordV1(password: string): string {
 // Returns an object indicating success and whether an upgrade is needed
 userSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
   // Debug logging
-  console.log('comparePassword called with:', {
+  console.log('comparePassword called:', {
     candidatePassword: candidatePassword ? '[PROVIDED]' : '[MISSING]',
     storedPassword: this.password ? '[EXISTS]' : '[MISSING]',
-    storedKey: this.key ? '[EXISTS]' : '[MISSING]',
-    passwordLength: this.password ? this.password.length : 0,
-    keyLength: this.key ? this.key.length : 0
+    storedKey: this.key ? '[EXISTS]' : '[MISSING]'
   });
   
   // Validate inputs
@@ -131,10 +129,8 @@ userSchema.methods.comparePassword = async function(candidatePassword: string): 
         // Automatically upgrade to bcrypt format
         console.log('Auto-upgrading password to bcrypt format...');
         console.log('User before upgrade:', {
-          name: this.name,
           hasPassword: !!this.password,
-          hasKey: !!this.key,
-          keyLength: this.key ? this.key.length : 0
+          hasKey: !!this.key
         });
         
         try {
@@ -150,10 +146,8 @@ userSchema.methods.comparePassword = async function(candidatePassword: string): 
           
           console.log('Password successfully upgraded to bcrypt');
           console.log('User after upgrade:', {
-            name: this.name,
             hasPassword: !!this.password,
-            hasKey: !!this.key,
-            passwordLength: this.password ? this.password.length : 0
+            hasKey: !!this.key
           });
           
         } catch (upgradeError) {
