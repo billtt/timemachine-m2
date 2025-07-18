@@ -1,7 +1,7 @@
 // PWA Service Worker for TimeMachine
-const CACHE_NAME = 'timemachine-v4';
+const CACHE_NAME = 'timemachine-v5'; // Bump version to force update
 const urlsToCache = [
-  '/',
+  // Don't cache index.html (/) - let it always fetch fresh
   './manifest.json',
   './logo.png',
   './favicon.ico'
@@ -37,7 +37,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - serve from cache when offline
+// Fetch event - network first for HTML, cache first for assets
 self.addEventListener('fetch', (event) => {
   // Skip API requests - let them go directly to the network
   if (event.request.url.includes('/api/')) {
@@ -49,18 +49,37 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   
-  // Only handle GET requests for static assets and navigation
+  // Network-first strategy for HTML documents (including /)
+  if (event.request.mode === 'navigate' || event.request.url.endsWith('.html')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // Don't cache HTML files
+          return response;
+        })
+        .catch(() => {
+          // If offline and request fails, try cache as fallback
+          return caches.match(event.request);
+        })
+    );
+    return;
+  }
+  
+  // Cache-first strategy for static assets (CSS, JS, images)
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
         // Return cached version or fetch from network
-        return response || fetch(event.request);
-      })
-      .catch(() => {
-        // Return offline page if available
-        if (event.request.mode === 'navigate') {
-          return caches.match('/');
-        }
+        return response || fetch(event.request).then((fetchResponse) => {
+          // Cache new assets
+          return caches.open(CACHE_NAME).then((cache) => {
+            // Only cache successful responses
+            if (fetchResponse.status === 200) {
+              cache.put(event.request, fetchResponse.clone());
+            }
+            return fetchResponse;
+          });
+        });
       })
   );
 });
