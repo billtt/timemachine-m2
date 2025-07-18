@@ -43,7 +43,7 @@ const SearchPage: React.FC = () => {
         return apiService.searchSlices({
           q: searchQuery,
           useRegex,
-          page: pageParam,
+          page: pageParam as number,
           limit: 50
         });
       } else {
@@ -56,10 +56,11 @@ const SearchPage: React.FC = () => {
         };
       }
     },
-    getNextPageParam: (lastPage) => {
+    getNextPageParam: (lastPage: any) => {
       const { page, pages } = lastPage.pagination;
       return page < pages ? page + 1 : undefined;
     },
+    initialPageParam: 1,
     enabled: searchQuery.trim().length > 0,
     refetchOnWindowFocus: false,
   });
@@ -76,7 +77,7 @@ const SearchPage: React.FC = () => {
   };
 
   // Flatten all pages into a single array of slices
-  const allSlices = searchResults?.pages.flatMap(page => page.slices) || [];
+  const allSlices = searchResults?.pages.flatMap((page: any) => page.slices) || [];
   const totalResults = searchResults?.pages[0]?.total || 0;
 
   // Infinite scroll detection
@@ -85,7 +86,7 @@ const SearchPage: React.FC = () => {
     if (isLoading) return;
     if (observer.current) observer.current.disconnect();
     observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+      if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
         fetchNextPage();
       }
     });

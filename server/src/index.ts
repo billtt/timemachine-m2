@@ -27,7 +27,7 @@ for (const envFile of envFiles) {
       loadedEnvFile = envFile;
       break;
     }
-  } catch (error) {
+  } catch {
     // Continue to next file
   }
 }
@@ -44,7 +44,7 @@ if (process.env.JWT_SECRET) {
 }
 
 const PORT = process.env.PORT || 5000;
-let server: any;
+let server: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 // Graceful shutdown handler
 const gracefulShutdown = (signal: string) => {

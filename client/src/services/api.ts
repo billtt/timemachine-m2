@@ -91,6 +91,7 @@ class ApiService {
               // Coordinate CSRF token refresh to prevent multiple simultaneous refreshes
               if (!this.csrfRefreshPromise) {
                 this.csrfRefreshPromise = csrfService.refreshToken()
+                  .then(() => {})
                   .finally(() => {
                     this.csrfRefreshPromise = null;
                   });

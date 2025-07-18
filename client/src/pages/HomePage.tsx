@@ -30,7 +30,7 @@ const HomePage: React.FC = () => {
   const queryClient = useQueryClient();
 
   // Fetch slices for selected date
-  const { data: slicesData, isLoading, error, refetch } = useQuery({
+  const { data: slicesData, isLoading, error } = useQuery({
     queryKey: ['slices', format(selectedDate, 'yyyy-MM-dd')],
     queryFn: async () => {
       const startDate = startOfDay(selectedDate).toISOString();

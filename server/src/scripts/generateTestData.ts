@@ -86,7 +86,7 @@ function generateRandomDate(): Date {
 
 // Generate random slice type
 function generateRandomType(): typeof sliceTypes[number] {
-  return sliceTypes[Math.floor(Math.random() * sliceTypes.length)];
+  return sliceTypes[Math.floor(Math.random() * sliceTypes.length)]!;
 }
 
 // Main function to generate test data
@@ -101,7 +101,7 @@ async function generateTestData() {
     // Get command line arguments
     const args = process.argv.slice(2);
     const username = args[0] || 'admin'; // Default username
-    const count = parseInt(args[1]) || 200; // Default count
+    const count = parseInt(args[1] || '200') || 200; // Default count
     
     console.log(`👤 Target user: ${username}`);
     console.log(`📊 Generating ${count} test slices...`);
