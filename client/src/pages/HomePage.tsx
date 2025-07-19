@@ -13,6 +13,9 @@ import SliceForm from '../components/SliceForm';
 import Modal from '../components/Modal';
 import Button from '../components/Button';
 import Loading from '../components/Loading';
+import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import PullToRefresh from '../components/PullToRefresh';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 const HomePage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -176,10 +179,25 @@ const HomePage: React.FC = () => {
     setSelectedDate(new Date());
   };
 
+  // Mobile detection
+  const isMobile = useIsMobile();
+
+  // Pull to refresh setup (only on mobile)
+  const {
+    containerRef,
+    isPulling,
+    pullDistance,
+    isRefreshing: isPullRefreshing,
+    willRefresh
+  } = usePullToRefresh({
+    onRefresh: handleRefresh,
+    disabled: isLoading || !isMobile
+  });
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className={`max-w-4xl mx-auto ${isMobile ? 'h-screen flex flex-col' : 'space-y-6'}`}>
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className={`flex items-center justify-between ${isMobile ? 'p-4' : ''}`}>
         <div className="flex items-center space-x-1">
           <Button
             variant="secondary"
@@ -214,15 +232,17 @@ const HomePage: React.FC = () => {
         </div>
         
         <div className="flex items-center space-x-1">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isLoading || isRefreshing}
-            title="Refresh"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading || isRefreshing ? 'animate-spin' : ''}`} />
-          </Button>
+          {!isMobile && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isLoading || isRefreshing}
+              title="Refresh"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading || isRefreshing ? 'animate-spin' : ''}`} />
+            </Button>
+          )}
           <Button
             size="sm"
             onClick={() => setShowAddModal(true)}
@@ -243,7 +263,19 @@ const HomePage: React.FC = () => {
       )}
 
       {/* Content */}
-      <div className="space-y-4">
+      <div 
+        ref={containerRef}
+        className={`${isMobile ? 'flex-1 overflow-y-auto relative' : 'space-y-4'}`}
+        style={isMobile ? { WebkitOverflowScrolling: 'touch' } : {}}
+      >
+        {isMobile && (
+          <PullToRefresh
+            isPulling={isPulling}
+            pullDistance={pullDistance}
+            isRefreshing={isPullRefreshing}
+            willRefresh={willRefresh}
+          >
+            <div className="space-y-4 p-4">
         {isLoading ? (
           <Loading text="Loading slices..." />
         ) : error ? (
@@ -281,6 +313,52 @@ const HomePage: React.FC = () => {
               />
             ))}
           </div>
+        )}
+            </div>
+          </PullToRefresh>
+        )}
+        
+        {!isMobile && (
+          <>
+            {isLoading ? (
+              <Loading text="Loading slices..." />
+            ) : error ? (
+              <div className="text-center py-8">
+                <p className="text-red-600 dark:text-red-400 mb-4">
+                  Failed to load slices
+                </p>
+                <Button onClick={handleRefresh} variant="secondary">
+                  Try Again
+                </Button>
+              </div>
+            ) : displaySlices.length === 0 ? (
+              <div className="text-center py-12">
+                <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  No slices yet
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  {isToday ? 'Start tracking your day by adding your first slice!' : 'No activity recorded for this date.'}
+                </p>
+                <Button onClick={() => setShowAddModal(true)}>
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Slice
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {displaySlices.map((slice) => (
+                  <SliceItem
+                    key={slice.id}
+                    slice={slice}
+                    onEdit={handleEditSlice}
+                    onDelete={handleDeleteSlice}
+                    privacyMode={privacyMode}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
