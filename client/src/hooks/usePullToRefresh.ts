@@ -19,21 +19,18 @@ export const usePullToRefresh = ({
   
   const touchStartY = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const startScrollY = useRef(0);
 
   useEffect(() => {
     if (disabled) return;
 
-    const container = containerRef.current;
-    if (!container) return;
-
     let rafId: number | null = null;
 
     const handleTouchStart = (e: TouchEvent) => {
-      if (container.scrollTop === 0 && !isRefreshing) {
-        const touch = e.touches[0];
-        if (touch) {
-          touchStartY.current = touch.clientY;
-        }
+      const touch = e.touches[0];
+      if (touch) {
+        touchStartY.current = touch.clientY;
+        startScrollY.current = window.pageYOffset || document.documentElement.scrollTop;
       }
     };
 
@@ -46,8 +43,14 @@ export const usePullToRefresh = ({
       const currentY = touch.clientY;
       const diff = currentY - touchStartY.current;
 
-      // Only track downward pulls when at the top
-      if (diff > 0 && container.scrollTop === 0) {
+      // Get current scroll position
+      const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
+      
+      // Only allow pull-to-refresh if:
+      // 1. We're pulling down (diff > 0)
+      // 2. We started at the top (startScrollY.current === 0)
+      // 3. We're still at the top (currentScrollY === 0)
+      if (diff > 0 && startScrollY.current === 0 && currentScrollY === 0) {
         e.preventDefault();
         setIsPulling(true);
         
@@ -59,6 +62,12 @@ export const usePullToRefresh = ({
         rafId = requestAnimationFrame(() => {
           setPullDistance(actualDistance);
         });
+      } else {
+        // Reset pull state if conditions aren't met
+        if (isPulling) {
+          setIsPulling(false);
+          setPullDistance(0);
+        }
       }
     };
 
@@ -93,17 +102,18 @@ export const usePullToRefresh = ({
     // Add passive: false to prevent Chrome warnings
     const options = { passive: false };
     
-    container.addEventListener('touchstart', handleTouchStart, { passive: true });
-    container.addEventListener('touchmove', handleTouchMove, options);
-    container.addEventListener('touchend', handleTouchEnd, { passive: true });
-    container.addEventListener('touchcancel', handleTouchCancel, { passive: true });
+    // Add event listeners to document since we're using document-level scrolling
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchmove', handleTouchMove, options);
+    document.addEventListener('touchend', handleTouchEnd, { passive: true });
+    document.addEventListener('touchcancel', handleTouchCancel, { passive: true });
 
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
-      container.removeEventListener('touchstart', handleTouchStart);
-      container.removeEventListener('touchmove', handleTouchMove);
-      container.removeEventListener('touchend', handleTouchEnd);
-      container.removeEventListener('touchcancel', handleTouchCancel);
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('touchcancel', handleTouchCancel);
     };
   }, [isPulling, pullDistance, isRefreshing, threshold, maxPull, onRefresh, disabled]);
 

@@ -184,7 +184,6 @@ const HomePage: React.FC = () => {
 
   // Pull to refresh setup (only on mobile)
   const {
-    containerRef,
     isPulling,
     pullDistance,
     isRefreshing: isPullRefreshing,
@@ -195,9 +194,9 @@ const HomePage: React.FC = () => {
   });
 
   return (
-    <div className={`max-w-4xl mx-auto ${isMobile ? 'h-screen flex flex-col' : 'space-y-6'}`}>
-      {/* Header */}
-      <div className={`flex items-center justify-between ${isMobile ? 'p-4' : ''}`}>
+    <div className={`max-w-4xl mx-auto ${isMobile ? '' : 'space-y-6'}`}>
+      {/* Header - Sticky on mobile */}
+      <div className={`flex items-center justify-between ${isMobile ? 'sticky top-0 z-20 p-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700' : ''}`}>
         <div className="flex items-center space-x-1">
           <Button
             variant="secondary"
@@ -253,19 +252,10 @@ const HomePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Offline indicator */}
-      {!isOnline && (
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-          <p className="text-sm text-yellow-800 dark:text-yellow-200">
-            You're offline. New slices will be saved locally and synced when you're back online.
-          </p>
-        </div>
-      )}
 
       {/* Content */}
       <div 
-        ref={containerRef}
-        className={`${isMobile ? 'flex-1 overflow-y-auto relative' : 'space-y-4'}`}
+        className={`${isMobile ? 'relative' : 'space-y-4'}`}
         style={isMobile ? { WebkitOverflowScrolling: 'touch' } : {}}
       >
         {isMobile && (
@@ -275,11 +265,22 @@ const HomePage: React.FC = () => {
             isRefreshing={isPullRefreshing}
             willRefresh={willRefresh}
           >
-            <div className="space-y-4 p-4">
+            <div className="space-y-4">
+              {/* Offline indicator - Mobile */}
+              {!isOnline && (
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mx-4">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                    You're offline. New slices will be saved locally and synced when you're back online.
+                  </p>
+                </div>
+              )}
+              
         {isLoading ? (
-          <Loading text="Loading slices..." />
+          <div className="px-4">
+            <Loading text="Loading slices..." />
+          </div>
         ) : error ? (
-          <div className="text-center py-8">
+          <div className="text-center py-8 px-4">
             <p className="text-red-600 dark:text-red-400 mb-4">
               Failed to load slices
             </p>
@@ -288,7 +289,7 @@ const HomePage: React.FC = () => {
             </Button>
           </div>
         ) : displaySlices.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-12 px-4">
             <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
               No slices yet
@@ -302,7 +303,7 @@ const HomePage: React.FC = () => {
             </Button>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 px-4 pb-4">
             {displaySlices.map((slice) => (
               <SliceItem
                 key={slice.id}
@@ -319,7 +320,16 @@ const HomePage: React.FC = () => {
         )}
         
         {!isMobile && (
-          <>
+          <div className="space-y-4">
+            {/* Offline indicator - Desktop in content */}
+            {!isOnline && (
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  You're offline. New slices will be saved locally and synced when you're back online.
+                </p>
+              </div>
+            )}
+            
             {isLoading ? (
               <Loading text="Loading slices..." />
             ) : error ? (
@@ -358,7 +368,7 @@ const HomePage: React.FC = () => {
                 ))}
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
 

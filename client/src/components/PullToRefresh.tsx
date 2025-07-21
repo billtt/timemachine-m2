@@ -21,7 +21,7 @@ const PullToRefresh: React.FC<PullToRefreshProps> = ({
   const rotation = pullDistance * 3;
 
   return (
-    <div className="relative h-full">
+    <div className="relative">
       {/* Pull indicator */}
       <div
         className="absolute top-0 left-0 right-0 flex justify-center pointer-events-none z-10 transition-all duration-300"
@@ -52,7 +52,7 @@ const PullToRefresh: React.FC<PullToRefreshProps> = ({
 
       {/* Main content with pull transform */}
       <div
-        className="h-full transition-transform duration-300"
+        className="transition-transform duration-300"
         style={{
           transform: isPulling ? `translateY(${pullDistance}px)` : 'translateY(0)'
         }}
