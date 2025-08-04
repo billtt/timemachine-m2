@@ -80,7 +80,6 @@ class ApiService {
             
             // If this exact request is already being retried, don't retry again
             if (this.retryingRequests.has(requestKey)) {
-              console.log('Request already being retried, skipping duplicate retry');
               return Promise.reject(error);
             }
             
@@ -138,7 +137,6 @@ class ApiService {
     
     // If this exact request is already in progress, return the existing promise
     if (this.activeRequests.has(requestKey)) {
-      console.log('Deduplicating identical request:', requestKey);
       return this.activeRequests.get(requestKey)!;
     }
     
@@ -202,6 +200,15 @@ class ApiService {
     return this.request<void>({
       method: 'PUT',
       url: '/auth/password',
+      data,
+    });
+  }
+
+  // Encryption endpoints
+  async rotateEncryptionKey(data: { oldKey: string; newKey: string }): Promise<{ success: boolean; slicesUpdated: number }> {
+    return this.request<{ success: boolean; slicesUpdated: number }>({
+      method: 'POST',
+      url: '/encryption/rotate-key',
       data,
     });
   }

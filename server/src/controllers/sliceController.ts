@@ -6,20 +6,26 @@ import { CreateSliceData, UpdateSliceData } from '../types/validation';
 import { SliceType } from '../types/shared';
 
 export const createSlice = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const { content, type, time }: CreateSliceData = req.body;
+  const { content, type, time, searchTokens }: CreateSliceData = req.body;
+
 
   const slice = new Slice({
     content,
     type,
     time: time ? new Date(time) : new Date(),
-    user: req.user.username  // Use username instead of user ID
+    user: req.user.username,  // Use username instead of user ID
+    searchTokens: searchTokens || []  // Include search tokens for encrypted search
   });
 
   await slice.save();
 
+  // Remove searchTokens from response
+  const responseSlice = slice.toJSON();
+  delete responseSlice.searchTokens;
+  
   res.status(201).json({
     success: true,
-    data: { slice },
+    data: { slice: responseSlice },
     message: 'Slice created successfully'
   });
 });
@@ -27,15 +33,6 @@ export const createSlice = asyncHandler(async (req: AuthenticatedRequest, res: R
 export const getSlices = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { page = 1, limit = 50, startDate, endDate, type, search } = req.query as any;
 
-  // Debug logging
-  console.log('getSlices called:', {
-    page,
-    limit,
-    startDate,
-    endDate,
-    type,
-    hasSearch: !!search
-  });
 
   // Build query using username (compatible with v1.0 data)
   const query: any = { user: req.user.username };
@@ -69,12 +66,6 @@ export const getSlices = asyncHandler(async (req: AuthenticatedRequest, res: Res
   // Execute query with pagination
   const skip = (page - 1) * limit;
   
-  console.log('Executing slice query:', {
-    queryFields: Object.keys(query),
-    skip,
-    limit
-  });
-  
   const [slices, total] = await Promise.all([
     Slice.find(query)
       .sort({ time: -1 })
@@ -83,16 +74,18 @@ export const getSlices = asyncHandler(async (req: AuthenticatedRequest, res: Res
     Slice.countDocuments(query)
   ]);
   
-  console.log('Query results:', {
-    foundSlices: slices.length,
-    totalSlices: total,
-    hasResults: slices.length > 0
-  });
 
+  // Remove searchTokens from response slices
+  const responseSlices = slices.map(slice => {
+    const sliceObj = slice.toJSON();
+    delete sliceObj.searchTokens;
+    return sliceObj;
+  });
+  
   res.json({
     success: true,
     data: {
-      slices,
+      slices: responseSlices,
       pagination: {
         page,
         limit,
@@ -114,15 +107,19 @@ export const getSlice = asyncHandler(async (req: AuthenticatedRequest, res: Resp
     throw createError('Slice not found', 404);
   }
 
+  // Remove searchTokens from response
+  const responseSlice = slice.toJSON();
+  delete responseSlice.searchTokens;
+  
   res.json({
     success: true,
-    data: { slice }
+    data: { slice: responseSlice }
   });
 });
 
 export const updateSlice = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const { content, type, time }: UpdateSliceData = req.body;
+  const { content, type, time, searchTokens }: UpdateSliceData = req.body;
 
   const slice = await Slice.findOne({ 
     _id: id, 
@@ -136,12 +133,19 @@ export const updateSlice = asyncHandler(async (req: AuthenticatedRequest, res: R
   if (content !== undefined) slice.content = content;
   if (type !== undefined) slice.type = type as SliceType;
   if (time !== undefined) slice.time = new Date(time);
+  if (searchTokens !== undefined) {
+    slice.searchTokens = searchTokens;
+  }
 
   await slice.save();
 
+  // Remove searchTokens from response
+  const responseSlice = slice.toJSON();
+  delete responseSlice.searchTokens;
+  
   res.json({
     success: true,
-    data: { slice },
+    data: { slice: responseSlice },
     message: 'Slice updated successfully'
   });
 });
@@ -232,13 +236,63 @@ const executeRegexWithTimeout = async (query: any, page: number, limit: number, 
 };
 
 export const searchSlices = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const { q, page: pageStr = '1', limit: limitStr = '50', type, useRegex: useRegexStr }: any = req.query;
+  const { q, page: pageStr = '1', limit: limitStr = '50', type, useRegex: useRegexStr, searchTokens }: any = req.query;
   
   const page = parseInt(pageStr as string, 10) || 1;
   const limit = Math.min(parseInt(limitStr as string, 10) || 50, 100);
   const useRegex = useRegexStr === 'true';
 
-  // Validate search query
+  // Build query using username (compatible with v1.0 data)
+  const query: any = { user: req.user.username };
+
+  // Type filter
+  if (type) {
+    query.type = type;
+  }
+
+  // Handle encrypted search tokens
+  if (searchTokens) {
+    try {
+      const tokens = JSON.parse(searchTokens);
+      if (Array.isArray(tokens) && tokens.length > 0) {
+        query.searchTokens = { $in: tokens };
+        
+        // Execute encrypted search
+        const skip = (page - 1) * limit;
+        const [slices, total] = await Promise.all([
+          Slice.find(query)
+            .sort({ time: -1 })
+            .skip(skip)
+            .limit(limit),
+          Slice.countDocuments(query)
+        ]);
+
+        const pages = Math.ceil(total / limit);
+        // Remove searchTokens from response slices
+        const responseSlices = slices.map(slice => {
+          const sliceObj = slice.toJSON();
+          delete sliceObj.searchTokens;
+          return sliceObj;
+        });
+        
+        return res.json({
+          success: true,
+          data: {
+            slices: responseSlices,
+            total,
+            pagination: { page, limit, total, pages }
+          }
+        });
+      }
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid search tokens format'
+      });
+    }
+  }
+
+  // Validate search query for non-encrypted search
   if (!q || typeof q !== 'string' || q.trim().length === 0) {
     return res.status(400).json({
       success: false,
@@ -252,14 +306,6 @@ export const searchSlices = asyncHandler(async (req: AuthenticatedRequest, res: 
       success: false,
       error: 'Search query too long (maximum 200 characters)'
     });
-  }
-
-  // Build query using username (compatible with v1.0 data)
-  const query: any = { user: req.user.username };
-
-  // Type filter
-  if (type) {
-    query.type = type;
   }
 
   // Search query with security validation
@@ -312,10 +358,17 @@ export const searchSlices = asyncHandler(async (req: AuthenticatedRequest, res: 
     throw error;
   }
 
+  // Remove searchTokens from response slices
+  const responseSlices = slices.map(slice => {
+    const sliceObj = slice.toJSON();
+    delete sliceObj.searchTokens;
+    return sliceObj;
+  });
+  
   return res.json({
     success: true,
     data: {
-      slices,
+      slices: responseSlices,
       total,
       query: q,
       pagination: {

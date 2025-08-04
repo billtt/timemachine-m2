@@ -8,6 +8,7 @@ import { useSliceStore } from '../store/sliceStore';
 import { Slice, SliceFormData } from '../types';
 import apiService from '../services/api';
 import offlineStorage from '../services/offline';
+import { encryptionService } from '../services/encryption';
 import SliceItem from '../components/SliceItem';
 import SliceForm from '../components/SliceForm';
 import Modal from '../components/Modal';
@@ -22,18 +23,35 @@ const HomePage: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingSlice, setEditingSlice] = useState<Slice | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [encryptionEnabled, setEncryptionEnabled] = useState(false);
   const { privacyMode, isOnline } = useUIStore();
   const { syncPendingSlices, loadPendingOperations, processOperations } = useOfflineStore();
   const { 
     slices, 
-    setSlices, 
+    setDecryptedSlices, 
     addSliceOptimistically, 
     updateSliceOptimistically, 
     deleteSliceOptimistically 
   } = useSliceStore();
   const queryClient = useQueryClient();
 
-  // Fetch slices for selected date
+  // Track encryption status changes
+  useEffect(() => {
+    const checkEncryption = () => {
+      const isEnabled = encryptionService.isEncryptionEnabled();
+      setEncryptionEnabled(isEnabled);
+    };
+    
+    // Initial check
+    encryptionService.initialize().then(checkEncryption);
+    
+    // Poll for changes (when user sets password in settings)
+    const interval = setInterval(checkEncryption, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch slices for selected date (get encrypted data)
   const { data: slicesData, isLoading, error } = useQuery({
     queryKey: ['slices', format(selectedDate, 'yyyy-MM-dd')],
     queryFn: async () => {
@@ -41,7 +59,7 @@ const HomePage: React.FC = () => {
       const endDate = endOfDay(selectedDate).toISOString();
       
       if (isOnline) {
-        return apiService.getSlices({ startDate, endDate });
+        return await apiService.getSlices({ startDate, endDate });
       } else {
         // Try to get from cache
         const cached = await offlineStorage.getCachedSlices();
@@ -59,12 +77,49 @@ const HomePage: React.FC = () => {
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  // Update slice store when data changes
+  // Separate query for decryption that depends on encryption service state
+  const { data: decryptedSlicesData } = useQuery({
+    queryKey: ['decrypted-slices', format(selectedDate, 'yyyy-MM-dd'), encryptionEnabled],
+    queryFn: async () => {
+      if (!slicesData?.slices) return null;
+      
+      // Ensure encryption service is initialized
+      await encryptionService.initialize();
+      
+      // Decrypt slices
+      const decryptedSlices = await Promise.all(
+        slicesData.slices.map(async (slice) => {
+          const decryptedContent = await encryptionService.decrypt(slice.content);
+          return {
+            ...slice,
+            content: decryptedContent
+          };
+        })
+      );
+      
+      return { ...slicesData, slices: decryptedSlices };
+    },
+    enabled: !!slicesData?.slices,
+    staleTime: 0, // Always decrypt fresh to handle key changes
+  });
+
+  // Update slice store when decrypted data changes
   useEffect(() => {
-    if (slicesData?.slices) {
-      setSlices(slicesData.slices);
+    if (decryptedSlicesData?.slices) {
+      // Slices are already decrypted, so we set them directly
+      setDecryptedSlices(decryptedSlicesData.slices);
     }
-  }, [slicesData, setSlices]);
+  }, [decryptedSlicesData, setDecryptedSlices]);
+
+  // Listen for slice store changes and invalidate decryption cache
+  useEffect(() => {
+    // Force refetch decrypted slices when raw slice data changes
+    if (slicesData?.slices) {
+      queryClient.invalidateQueries({ 
+        queryKey: ['decrypted-slices', format(selectedDate, 'yyyy-MM-dd'), encryptionEnabled] 
+      });
+    }
+  }, [slicesData, queryClient, selectedDate, encryptionEnabled]);
 
   // Load pending operations on mount
   useEffect(() => {
@@ -170,6 +225,7 @@ const HomePage: React.FC = () => {
     const sliceDate = new Date(slice.time);
     return sliceDate >= startOfDay(selectedDate) && sliceDate <= endOfDay(selectedDate);
   });
+  
   const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
 
   const goToPreviousDay = () => {
@@ -309,15 +365,21 @@ const HomePage: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-4 px-4 pb-4 mt-4">
-            {displaySlices.map((slice) => (
-              <SliceItem
-                key={slice.id}
-                slice={slice}
-                onEdit={handleEditSlice}
-                onDelete={handleDeleteSlice}
-                privacyMode={privacyMode}
-              />
-            ))}
+            {displaySlices.map((slice, index) => {
+              const sliceWithStatus = slice as any;
+              // Use tempId for pending operations, otherwise use slice.id + index for uniqueness
+              const key = sliceWithStatus.tempId || `${slice.id}-${index}`;
+              
+              return (
+                <SliceItem
+                  key={key}
+                  slice={slice}
+                  onEdit={handleEditSlice}
+                  onDelete={handleDeleteSlice}
+                  privacyMode={privacyMode}
+                />
+              );
+            })}
           </div>
         )}
             </div>
@@ -362,15 +424,21 @@ const HomePage: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {displaySlices.map((slice) => (
-                  <SliceItem
-                    key={slice.id}
-                    slice={slice}
-                    onEdit={handleEditSlice}
-                    onDelete={handleDeleteSlice}
-                    privacyMode={privacyMode}
-                  />
-                ))}
+                {displaySlices.map((slice, index) => {
+                  const sliceWithStatus = slice as any;
+                  // Use tempId for pending operations, otherwise use slice.id + index for uniqueness
+                  const key = sliceWithStatus.tempId || `${slice.id}-${index}`;
+                  
+                  return (
+                    <SliceItem
+                      key={key}
+                      slice={slice}
+                      onEdit={handleEditSlice}
+                      onDelete={handleDeleteSlice}
+                      privacyMode={privacyMode}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>

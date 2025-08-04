@@ -18,15 +18,8 @@ const LoginPage: React.FC = () => {
     reset
   } = useForm<LoginFormData & RegisterFormData>();
 
-  // Debug: log errors when they change
-  React.useEffect(() => {
-    if (Object.keys(errors).length > 0) {
-      console.log('Form validation errors:', errors);
-    }
-  }, [errors]);
 
   const handleFormSubmit = async (data: LoginFormData & RegisterFormData) => {
-    console.log('Form submitted with data:', data);
     try {
       if (isLogin) {
         await login({ username: data.username, password: data.password });

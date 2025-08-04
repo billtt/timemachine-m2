@@ -65,15 +65,21 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   
-  // Cache-first strategy for static assets (CSS, JS, images)
+  // Don't cache JavaScript and CSS files to prevent component loading issues
+  if (event.request.url.endsWith('.js') || event.request.url.endsWith('.css')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+  
+  // Cache-first strategy for other static assets (images, fonts, etc.)
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
         // Return cached version or fetch from network
         return response || fetch(event.request).then((fetchResponse) => {
-          // Cache new assets
+          // Cache new assets (except JS/CSS)
           return caches.open(CACHE_NAME).then((cache) => {
-            // Only cache successful responses
+            // Only cache successful responses and non-JS/CSS files
             if (fetchResponse.status === 200) {
               cache.put(event.request, fetchResponse.clone());
             }

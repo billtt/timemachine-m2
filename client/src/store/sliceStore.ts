@@ -5,6 +5,7 @@ import { useUIStore } from './uiStore';
 import operationQueue from '../services/operationQueue';
 import { v4 as uuidv4 } from 'uuid';
 import toast from 'react-hot-toast';
+import { encryptionService } from '../services/encryption';
 
 // Global query client reference for cache invalidation
 let queryClient: any = null;
@@ -23,6 +24,7 @@ interface SliceWithStatus extends Slice {
 interface SliceStore {
   slices: SliceWithStatus[];
   setSlices: (slices: Slice[]) => void;
+  setDecryptedSlices: (slices: Slice[]) => void;
   addSliceOptimistically: (data: SliceFormData) => Promise<string>;
   updateSliceOptimistically: (id: string, data: Partial<SliceFormData>) => Promise<void>;
   deleteSliceOptimistically: (id: string) => Promise<void>;
@@ -34,7 +36,30 @@ interface SliceStore {
 export const useSliceStore = create<SliceStore>((set, get) => ({
   slices: [],
 
-  setSlices: (slices: Slice[]) => {
+  setSlices: async (slices: Slice[]) => {
+    try {
+      // Ensure encryption service is initialized
+      await encryptionService.initialize();
+      
+      // Decrypt slice content
+      const decryptedSlices = await Promise.all(
+        slices.map(async (slice) => ({
+          ...slice,
+          content: await encryptionService.decrypt(slice.content),
+          pending: false
+        }))
+      );
+      
+      set({ slices: decryptedSlices });
+    } catch (error) {
+      console.error('Error setting slices:', error);
+      // Fallback to original slices if decryption fails
+      set({ slices: slices.map(slice => ({ ...slice, pending: false })) });
+    }
+  },
+
+  setDecryptedSlices: (slices: Slice[]) => {
+    // For slices that are already decrypted (e.g., from HomePage query)
     set({ slices: slices.map(slice => ({ ...slice, pending: false })) });
   },
 
@@ -53,14 +78,20 @@ export const useSliceStore = create<SliceStore>((set, get) => ({
     });
     
     if (isDuplicate) {
-      console.log('Duplicate slice detected, skipping creation');
       return 'duplicate';
     }
 
+    // Ensure encryption service is initialized
+    await encryptionService.initialize();
+    
+    // Encrypt content before saving
+    const encryptedContent = await encryptionService.encrypt(data.content);
+    const searchTokens = await encryptionService.generateSearchTokens(data.content);
+    
     const tempId = uuidv4();
     const optimisticSlice: SliceWithStatus = {
       id: tempId,
-      content: data.content,
+      content: data.content, // Store decrypted content for immediate readable UI
       type: data.type,
       time: data.time,
       user: 'temp', // Will be replaced when synced
@@ -84,9 +115,10 @@ export const useSliceStore = create<SliceStore>((set, get) => ({
           type: 'create',
           operation: 'slice',
           data: {
-            content: data.content,
+            content: encryptedContent, // Send encrypted content to server
             type: data.type,
-            time: data.time.toISOString()
+            time: data.time.toISOString(),
+            searchTokens // Include search tokens
           },
           tempId
         });
@@ -96,9 +128,10 @@ export const useSliceStore = create<SliceStore>((set, get) => ({
           type: 'create',
           operation: 'slice',
           data: {
-            content: data.content,
+            content: encryptedContent, // Send encrypted content to server
             type: data.type,
-            time: data.time.toISOString()
+            time: data.time.toISOString(),
+            searchTokens // Include search tokens
           },
           tempId
         });
@@ -124,26 +157,37 @@ export const useSliceStore = create<SliceStore>((set, get) => ({
 
     const tempId = uuidv4();
 
-    // Update UI immediately
-    set(state => ({
-      slices: state.slices.map(slice =>
-        slice.id === id
-          ? {
-              ...slice,
-              ...data,
-              time: data.time || slice.time,
-              pending: true,
-              tempId
-            }
-          : slice
-      )
-    }));
-
     try {
+      // Ensure encryption service is initialized
+      await encryptionService.initialize();
+      
       const updateData: any = {};
-      if (data.content !== undefined) updateData.content = data.content;
+      let encryptedContent: string | undefined;
+      
+      if (data.content !== undefined) {
+        // Encrypt content if provided
+        encryptedContent = await encryptionService.encrypt(data.content);
+        updateData.content = encryptedContent;
+        updateData.searchTokens = await encryptionService.generateSearchTokens(data.content);
+      }
       if (data.type !== undefined) updateData.type = data.type;
       if (data.time !== undefined) updateData.time = data.time.toISOString();
+
+      // Update UI immediately with decrypted content for readable display
+      set(state => ({
+        slices: state.slices.map(slice =>
+          slice.id === id
+            ? {
+                ...slice,
+                content: data.content !== undefined ? data.content : slice.content,
+                type: data.type !== undefined ? data.type : slice.type,
+                time: data.time || slice.time,
+                pending: true,
+                tempId
+              }
+            : slice
+        )
+      }));
 
       await useOfflineStore.getState().addPendingOperation({
         type: 'update',
@@ -211,7 +255,23 @@ export const useSliceStore = create<SliceStore>((set, get) => ({
     }
   },
 
-  markSliceAsCompleted: (tempId: string, realSlice?: Slice) => {
+  markSliceAsCompleted: async (tempId: string, realSlice?: Slice) => {
+    let decryptedRealSlice = realSlice;
+    
+    // If we have a real slice from server, decrypt its content for display
+    if (realSlice) {
+      try {
+        await encryptionService.initialize();
+        decryptedRealSlice = {
+          ...realSlice,
+          content: await encryptionService.decrypt(realSlice.content)
+        };
+      } catch (error) {
+        console.error('Failed to decrypt real slice content:', error);
+        // Keep original slice if decryption fails
+      }
+    }
+    
     set(state => ({
       slices: state.slices.filter(slice => {
         if (slice.tempId === tempId) {
@@ -225,10 +285,10 @@ export const useSliceStore = create<SliceStore>((set, get) => ({
         return true;
       }).map((slice): SliceWithStatus => {
         if (slice.tempId === tempId) {
-          if (realSlice) {
-            // Replace with real slice from server, keeping the order
+          if (decryptedRealSlice) {
+            // Replace with decrypted real slice from server
             return { 
-              ...realSlice, 
+              ...decryptedRealSlice, 
               pending: false,
               tempId: undefined,
               isDeleting: undefined
@@ -266,20 +326,21 @@ export const useSliceStore = create<SliceStore>((set, get) => ({
 }));
 
 // Register callbacks for operation completion
-operationQueue.onOperationSuccess((_operationId, tempId, result) => {
+operationQueue.onOperationSuccess(async (_operationId, tempId, result) => {
   if (tempId) {
     const { markSliceAsCompleted } = useSliceStore.getState();
     
     // If it's a create operation, pass the real slice data
     if (result && result.slice) {
-      markSliceAsCompleted(tempId, result.slice);
+      await markSliceAsCompleted(tempId, result.slice);
     } else {
-      markSliceAsCompleted(tempId);
+      await markSliceAsCompleted(tempId);
     }
     
     // Invalidate React Query cache for all slice queries
     if (queryClient) {
       queryClient.invalidateQueries({ queryKey: ['slices'] });
+      queryClient.invalidateQueries({ queryKey: ['decrypted-slices'] });
     }
   }
 });

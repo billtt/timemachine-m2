@@ -32,16 +32,11 @@ for (const envFile of envFiles) {
   }
 }
 
-// Debug: Log environment loading
+// Environment loading status
 console.log(`🔧 Loading environment from: ${loadedEnvFile}`);
 console.log(`📝 NODE_ENV: ${process.env.NODE_ENV}`);
 console.log(`🔑 JWT_SECRET loaded: ${process.env.JWT_SECRET ? 'YES' : 'NO'}`);
 console.log(`🗄️ MONGODB_URI loaded: ${process.env.MONGODB_URI ? 'YES' : 'NO'}`);
-
-// Additional debug: Show first few characters of JWT_SECRET if it exists
-if (process.env.JWT_SECRET) {
-  console.log(`🔑 JWT_SECRET preview: ${process.env.JWT_SECRET.substring(0, 8)}...`);
-}
 
 const PORT = process.env.PORT || 5000;
 let server: any; // eslint-disable-line @typescript-eslint/no-explicit-any

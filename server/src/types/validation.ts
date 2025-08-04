@@ -17,13 +17,15 @@ export const registerSchema = z.object({
 export const createSliceSchema = z.object({
   content: z.string().min(1).max(1000).trim(),
   type: z.enum(SLICE_TYPES as [string, ...string[]]).default('other'),
-  time: z.string().datetime().optional()
+  time: z.string().datetime().optional(),
+  searchTokens: z.array(z.string()).optional()
 });
 
 export const updateSliceSchema = z.object({
   content: z.string().min(1).max(1000).trim().optional(),
   type: z.enum(SLICE_TYPES as [string, ...string[]]).optional(),
-  time: z.string().datetime().optional()
+  time: z.string().datetime().optional(),
+  searchTokens: z.array(z.string()).optional()
 });
 
 // Query validation schemas

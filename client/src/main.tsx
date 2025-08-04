@@ -4,24 +4,56 @@ import App from './App';
 import './index.css';
 import offlineStorage from './services/offline';
 import operationQueue from './services/operationQueue';
+import { encryptionService } from './services/encryption';
 
-// Initialize offline storage and operation queue
+// Initialize services
 Promise.all([
   offlineStorage.init(),
-  operationQueue.init()
+  operationQueue.init(),
+  encryptionService.initialize()
 ]).catch(console.error);
 
-// Register PWA service worker
+// Register PWA service worker (only in production)
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then((registration) => {
-        console.log('PWA service worker registered:', registration);
-      })
-      .catch((error) => {
-        console.log('PWA service worker registration failed:', error);
-      });
-  });
+  if (import.meta.env.PROD) {
+    // Production: Register service worker
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then((registration) => {
+          console.log('PWA service worker registered:', registration);
+        })
+        .catch((error) => {
+          console.log('PWA service worker registration failed:', error);
+        });
+    });
+  } else {
+    // Development: Unregister any existing service worker to avoid caching issues
+    window.addEventListener('load', async () => {
+      try {
+        // Unregister all service workers
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for(let registration of registrations) {
+          const success = await registration.unregister();
+          if (success) {
+            console.log('Development: Unregistered service worker');
+          }
+        }
+        
+        // Clear all caches
+        if ('caches' in window) {
+          const cacheNames = await caches.keys();
+          await Promise.all(
+            cacheNames.map(cacheName => {
+              console.log('Development: Clearing cache:', cacheName);
+              return caches.delete(cacheName);
+            })
+          );
+        }
+      } catch (error) {
+        console.log('Development: Error clearing service worker/caches:', error);
+      }
+    });
+  }
 }
 
 // Debug PWA installation capability

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { Search, Loader2 } from 'lucide-react';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { Search, Loader2, RefreshCw } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useUIStore } from '../store/uiStore';
-import { SearchFormData } from '../types';
+import { SearchFormData, Slice } from '../types';
 import apiService from '../services/api';
 import offlineStorage from '../services/offline';
+import { encryptionService } from '../services/encryption';
 import SliceItem from '../components/SliceItem';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -14,6 +15,7 @@ import Loading from '../components/Loading';
 const SearchPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [useRegex, setUseRegex] = useState(false);
+  const [showSingleCharPrompt, setShowSingleCharPrompt] = useState(false);
   const { privacyMode, isOnline } = useUIStore();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -26,29 +28,40 @@ const SearchPage: React.FC = () => {
     }
   }, []);
 
-  // Infinite search query
+  // Raw search query (returns encrypted data)
   const {
-    data: searchResults,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-    error,
+    data: rawSearchResults,
+    fetchNextPage: fetchNextRawPage,
+    hasNextPage: hasNextRawPage,
+    isFetchingNextPage: isFetchingNextRawPage,
+    isLoading: isRawLoading,
+    error: rawError,
+    refetch: refetchSearch,
   } = useInfiniteQuery({
-    queryKey: ['search', searchQuery, useRegex],
+    queryKey: ['raw-search', searchQuery, useRegex],
     queryFn: async ({ pageParam = 1 }) => {
       if (!searchQuery.trim()) return { slices: [], total: 0, pagination: { page: 1, limit: 50, total: 0, pages: 1 } };
       
       if (isOnline) {
-        return apiService.searchSlices({
+        let searchParams: any = {
           q: searchQuery,
           useRegex,
           page: pageParam as number,
           limit: 50
-        });
+        };
+
+        // If encryption is enabled, generate search tokens
+        if (encryptionService.isEncryptionEnabled()) {
+          const tokens = await encryptionService.generateQueryTokens(searchQuery);
+          if (tokens.length > 0) {
+            searchParams.searchTokens = JSON.stringify(tokens);
+          }
+        }
+
+        return await apiService.searchSlices(searchParams);
       } else {
         // Search in offline cache (no pagination for offline)
-        const results = await offlineStorage.searchCachedSlices(searchQuery);
+        const results = await offlineStorage.searchCachedSlices(searchQuery);        
         return {
           slices: results,
           total: results.length,
@@ -57,28 +70,122 @@ const SearchPage: React.FC = () => {
       }
     },
     getNextPageParam: (lastPage: any) => {
+      // For encrypted search, we need to keep fetching until server says no more pages
+      // because client-side filtering might reduce results significantly
       const { page, pages } = lastPage.pagination;
-      return page < pages ? page + 1 : undefined;
+      const hasMore = page < pages;
+      return hasMore ? page + 1 : undefined;
     },
     initialPageParam: 1,
     enabled: searchQuery.trim().length > 0,
     refetchOnWindowFocus: false,
+    staleTime: 1000 * 30, // Consider data fresh for 30 seconds
+    gcTime: 1000 * 60 * 5, // Keep in cache for 5 minutes
   });
 
-  const handleSearch = (data: SearchFormData) => {
-    setSearchQuery(data.query || '');
+  // Decrypted search results
+  const {
+    data: searchResults,
+    isLoading: isDecryptLoading,
+    refetch: refetchDecryptedResults
+  } = useQuery({
+    queryKey: ['decrypted-search', searchQuery, useRegex, encryptionService.isEncryptionEnabled()],
+    queryFn: async () => {
+      if (!rawSearchResults?.pages) return null;
+      
+      // Ensure encryption service is initialized
+      await encryptionService.initialize();
+      
+      // Decrypt all pages
+      const decryptedPages = await Promise.all(
+        rawSearchResults.pages.map(async (page) => ({
+          ...page,
+          slices: await Promise.all(
+            page.slices.map(async (slice) => ({
+              ...slice,
+              content: await encryptionService.decrypt(slice.content)
+            }))
+          )
+        }))
+      );
+      
+      // If encryption is enabled, filter out false positives
+      if (encryptionService.isEncryptionEnabled()) {
+        const filteredPages = decryptedPages.map(page => {
+          const filteredSlices = page.slices.filter(slice => 
+            slice.content.toLowerCase().includes(searchQuery.toLowerCase())
+          );
+          
+          return {
+            ...page,
+            slices: filteredSlices,
+            pagination: {
+              ...page.pagination,
+              // Keep original server pagination for fetching more pages
+            }
+          };
+        });
+        
+        return { pages: filteredPages };
+      }
+      
+      return { pages: decryptedPages };
+    },
+    enabled: !!rawSearchResults?.pages && rawSearchResults.pages.length > 0,
+    staleTime: 0, // Always decrypt fresh
+  });
+
+  // Trigger decryption refetch when new pages are added
+  React.useEffect(() => {
+    if (rawSearchResults?.pages && rawSearchResults.pages.length > 0) {
+      refetchDecryptedResults();
+    }
+  }, [rawSearchResults?.pages?.length, refetchDecryptedResults]);
+
+  // Use decrypted data for display, but raw data for pagination
+  const fetchNextPage = fetchNextRawPage;
+  const hasNextPage = hasNextRawPage;
+  const isFetchingNextPage = isFetchingNextRawPage;
+  const isLoading = isRawLoading || isDecryptLoading;
+  const error = rawError;
+
+  const handleSearch = async (data: SearchFormData) => {
+    const query = data.query?.trim() || '';
+    
+    // Check for single character queries when encryption is enabled
+    await encryptionService.initialize();
+    if (encryptionService.isEncryptionEnabled() && query.length === 1) {
+      // Show the single character prompt and prevent the request
+      setShowSingleCharPrompt(true);
+      return;
+    }
+    
+    // Clear the single character prompt if it was showing
+    setShowSingleCharPrompt(false);
+    setSearchQuery(query);
     setUseRegex(data.useRegex || false);
   };
 
   const handleClearSearch = () => {
     setSearchQuery('');
     setUseRegex(false);
+    setShowSingleCharPrompt(false);
     reset();
+  };
+
+  const handleRefreshSearch = () => {
+    if (searchQuery.trim()) {
+      refetchSearch();
+    }
   };
 
   // Flatten all pages into a single array of slices
   const allSlices = searchResults?.pages.flatMap((page: any) => page.slices) || [];
-  const totalResults = searchResults?.pages[0]?.total || 0;
+  
+  // Calculate total results properly for encrypted search
+  const totalResults = encryptionService.isEncryptionEnabled() 
+    ? allSlices.length // For encrypted search, count actual filtered results
+    : searchResults?.pages[0]?.total || 0; // For non-encrypted, use server total
 
   // Infinite scroll detection
   const observer = useRef<IntersectionObserver>();
@@ -128,6 +235,7 @@ const SearchPage: React.FC = () => {
             }}
             error={errors.query?.message}
           />
+          
 
           {/* Filters */}
           <div className="space-y-2">
@@ -165,7 +273,17 @@ const SearchPage: React.FC = () => {
 
       {/* Results */}
       <div className="space-y-4">
-        {isLoading ? (
+        {showSingleCharPrompt ? (
+          <div className="text-center py-8">
+            <Search className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              Minimum 2 characters required
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              When encryption is enabled, search queries must be at least 2 characters long.
+            </p>
+          </div>
+        ) : isLoading ? (
           <Loading text="Searching..." />
         ) : error ? (
           <div className="text-center py-8">
@@ -185,13 +303,21 @@ const SearchPage: React.FC = () => {
           </div>
         ) : searchQuery && allSlices.length > 0 ? (
           <div>
-            <div className="mb-4">
+            <div className="mb-4 flex items-center justify-between">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Found {totalResults} results for "{searchQuery}"
+                Found {totalResults}{hasNextPage ? '+' : ''} results for "{searchQuery}"
               </p>
+              <button
+                onClick={handleRefreshSearch}
+                disabled={isLoading}
+                className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors dark:hover:bg-gray-800 dark:hover:text-gray-300"
+                title="Refresh search results"
+              >
+                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              </button>
             </div>
             <div className="space-y-4">
-              {allSlices.map((slice, index) => (
+              {allSlices.map((slice: Slice, index: number) => (
                 <div 
                   key={slice.id}
                   ref={index === allSlices.length - 1 ? lastSliceElementRef : undefined}

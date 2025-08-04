@@ -44,29 +44,15 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 export const login = asyncHandler(async (req: Request, res: Response) => {
   const { username, password }: LoginData = req.body;
 
-  console.log('Login attempt for user:', username);
-  console.log('Password provided:', password ? '[PROVIDED]' : '[MISSING]');
-
   // Find user and include both password and key fields for comparison
   const user = await User.findOne({ name: username }).select('+password +key');
   if (!user) {
-    console.log('User not found:', username);
     throw createError('Invalid credentials', 401);
   }
-
-  console.log('User found:', {
-    id: user._id,
-    name: user.name,
-    hasPassword: !!user.password,
-    passwordLength: user.password ? user.password.length : 0,
-    hasKey: !!user.key,
-    keyLength: user.key ? user.key.length : 0
-  });
 
   // Check password
   const isPasswordValid = await user.comparePassword(password);
   if (!isPasswordValid) {
-    console.log('Password validation failed for user:', username);
     throw createError('Invalid credentials', 401);
   }
 

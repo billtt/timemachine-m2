@@ -50,7 +50,6 @@ const SliceForm: React.FC<SliceFormProps> = ({
     // Prevent rapid successive submissions (debounce)
     const now = Date.now();
     if (now - lastSubmissionRef.current < 1000) {
-      console.log('Submission debounced - too soon after last submission');
       return;
     }
     lastSubmissionRef.current = now;

@@ -92,16 +92,8 @@ function encodePasswordV1(password: string): string {
 // Compare password method - supports both v1.0 (MD5) and v2.0 (bcrypt) formats
 // Returns an object indicating success and whether an upgrade is needed
 userSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
-  // Debug logging
-  console.log('comparePassword called:', {
-    candidatePassword: candidatePassword ? '[PROVIDED]' : '[MISSING]',
-    storedPassword: this.password ? '[EXISTS]' : '[MISSING]',
-    storedKey: this.key ? '[EXISTS]' : '[MISSING]'
-  });
-  
   // Validate inputs
   if (!candidatePassword) {
-    console.error('comparePassword: candidatePassword is missing');
     return false;
   }
   
@@ -110,11 +102,10 @@ userSchema.methods.comparePassword = async function(candidatePassword: string): 
     try {
       const isValidBcrypt = await bcrypt.compare(candidatePassword, this.password);
       if (isValidBcrypt) {
-        console.log('Password validated using bcrypt (v2.0)');
         return true;
       }
     } catch (error) {
-      console.error('bcrypt comparison error:', error);
+      // bcrypt comparison failed, continue to legacy check
     }
   }
   
@@ -124,15 +115,7 @@ userSchema.methods.comparePassword = async function(candidatePassword: string): 
       const hashedCandidate = encodePasswordV1(candidatePassword);
       const isValidMD5 = hashedCandidate === this.key;
       if (isValidMD5) {
-        console.log('Password validated using MD5 (v1.0 legacy) - UPGRADE REQUIRED');
-        
         // Automatically upgrade to bcrypt format
-        console.log('Auto-upgrading password to bcrypt format...');
-        console.log('User before upgrade:', {
-          hasPassword: !!this.password,
-          hasKey: !!this.key
-        });
-        
         try {
           const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || '12');
           this.password = await bcrypt.hash(candidatePassword, saltRounds);
@@ -141,33 +124,18 @@ userSchema.methods.comparePassword = async function(candidatePassword: string): 
           // Set flag to prevent double-hashing in pre-save hook
           this._passwordAlreadyHashed = true;
           
-          console.log('About to save user with new password...');
           await this.save();
-          
-          console.log('Password successfully upgraded to bcrypt');
-          console.log('User after upgrade:', {
-            hasPassword: !!this.password,
-            hasKey: !!this.key
-          });
-          
         } catch (upgradeError) {
-          console.error('Failed to upgrade password:', upgradeError);
-          console.error('Error details:', {
-            name: (upgradeError as Error).name,
-            message: (upgradeError as Error).message,
-            stack: (upgradeError as Error).stack
-          });
-          // Still return true since the password was valid, but log the upgrade failure
+          // Still return true since the password was valid, but upgrade failed
         }
         
         return true;
       }
     } catch (error) {
-      console.error('MD5 comparison error:', error);
+      // MD5 comparison failed, continue
     }
   }
   
-  console.error('Password validation failed: no valid password or key found');
   return false;
 };
 

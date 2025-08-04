@@ -5,6 +5,8 @@ import { useUIStore } from '../store/uiStore';
 import { useOfflineStore } from '../store/offlineStore';
 import Button from '../components/Button';
 import Input from '../components/Input';
+import { EncryptionSettings } from '../components/EncryptionSettings';
+import ErrorBoundary from '../components/ErrorBoundary';
 import apiService from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -328,6 +330,13 @@ const SettingsPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Encryption Section */}
+      <ErrorBoundary fallback={<div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <p className="text-red-800">Encryption settings failed to load. Try refreshing the page.</p>
+      </div>}>
+        <EncryptionSettings />
+      </ErrorBoundary>
 
       {/* PWA Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">

@@ -6,6 +6,7 @@ export interface ISlice extends Document {
   type: SliceType;
   user: string;  // Changed from ObjectId to string (username)
   time: Date;
+  searchTokens?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,6 +35,10 @@ const sliceSchema = new Schema<ISlice>(
       type: Date,
       required: true,
       default: Date.now
+    },
+    searchTokens: {
+      type: [String],
+      default: []
     }
   },
   {
