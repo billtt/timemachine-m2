@@ -30,7 +30,7 @@ class ApiService {
     
     this.api = axios.create({
       baseURL: this.baseURL,
-      timeout: 10000,
+      timeout: 30000, // Increased from 10s to 30s for general requests
       headers: {
         'Content-Type': 'application/json',
       },
@@ -116,7 +116,12 @@ class ApiService {
         } else if (error.response?.status >= 500) {
           toast.error('Server error. Please try again later.');
         } else if (error.code === 'ECONNABORTED') {
-          toast.error('Request timeout. Please check your connection.');
+          // Check if this is an encryption operation that might take longer
+          if (error.config?.url?.includes('/encryption/')) {
+            toast.error('Encryption operation is taking longer than expected. This may happen with large datasets. Please wait and try again if it fails.');
+          } else {
+            toast.error('Request timeout. Please check your connection.');
+          }
         } else if (!navigator.onLine) {
           toast.error('No internet connection');
         }
@@ -210,6 +215,7 @@ class ApiService {
       method: 'POST',
       url: '/encryption/rotate-key',
       data,
+      timeout: 120000, // 2 minutes for encryption key rotation (can process many slices)
     });
   }
 

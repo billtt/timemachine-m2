@@ -24,9 +24,9 @@ export interface Slice {
   updatedAt: Date;
 }
 
-export type SliceType = 'work' | 'fun' | 'gym' | 'reading' | 'other';
+export type SliceType = 'work' | 'fun' | 'gym' | 'reading' | 'sport' | 'other';
 
-export const SLICE_TYPES: SliceType[] = ['work', 'fun', 'gym', 'reading', 'other'];
+export const SLICE_TYPES: SliceType[] = ['work', 'fun', 'gym', 'reading', 'sport', 'other'];
 
 export interface CreateSliceRequest {
   content: string;

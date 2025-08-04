@@ -122,6 +122,8 @@ JWT_SECRET=dev-secret-key-change-in-production-super-long-secret
 JWT_EXPIRES_IN=7d
 BCRYPT_ROUNDS=12
 CORS_ORIGIN=http://localhost:3000,http://192.168.50.236:3000,http://127.0.0.1:3000
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=2000
 ```
 
 Client (.env):
@@ -142,6 +144,8 @@ JWT_SECRET=your-production-secret-key
 JWT_EXPIRES_IN=7d
 BCRYPT_ROUNDS=12
 CORS_ORIGIN=https://time2.bill.tt
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=2000
 ```
 
 ### Database
@@ -184,6 +188,7 @@ CORS_ORIGIN=https://time2.bill.tt
 
 ### Database Migrations
 - Run migration script: `cd server && npm run migrate`
+- Fix unknown slice types: `cd server && npm run fix-slice-types`
 - Schema changes are handled via Mongoose model updates
 
 ### Debugging
@@ -217,33 +222,63 @@ pm2 restart time2
 
 ## Recent Bug Fixes & Improvements
 
-### 1. Duplicate Slice Prevention
+### 1. Rate Limiting Issues Fixed
+- **Issue**: Users getting rate limit errors during normal usage
+  - "Too many search requests. Please wait before searching again" (search-specific)
+  - "Too many requests from this IP, please try again later" (general API)
+- **Root Cause**: Rate limits were too restrictive for normal app usage patterns
+- **Fix**: 
+  - Removed search-specific rate limiting (was 10 searches/minute)
+  - Increased general API rate limit from 100 to 2000 requests per 15 minutes
+  - Added environment variables for customizable rate limiting
+- **Location**: `server/src/routes/slices.ts`, `server/src/app.ts`
+
+### 2. Encryption Timeout Issues
+- **Issue**: Encryption password updates timeout when processing large datasets (many slices)
+- **Error**: Request timeout after 10 seconds during key rotation with large slice counts
+- **Fix**: 
+  - Increased general API timeout from 10s to 30s
+  - Set encryption key rotation timeout to 2 minutes (120s) on client
+  - Added server-side timeout extension to 3 minutes for encryption operations
+  - Enhanced error messages for encryption operation timeouts
+- **Location**: `client/src/services/api.ts`, `server/src/routes/encryption.ts`
+
+### 3. Unknown Slice Types Handling
+- **Issue**: Production database contains slice types not in current code (e.g., 'sport')
+- **Error**: `ValidatorError: 'sport' is not a valid enum value for path 'type'` during encryption key rotation
+- **Fix**: 
+  - Added 'sport' to valid slice types in `shared/types.ts`
+  - Enhanced encryption controller to normalize unknown types to 'other'
+  - Created migration script to fix existing data: `npm run fix-slice-types`
+- **Location**: `shared/types.ts`, `server/src/controllers/encryptionController.ts`, `server/src/scripts/fix-slice-types.ts`
+
+### 4. Duplicate Slice Prevention
 - **Issue**: Network issues/idle sessions causing duplicate slice creation
 - **Fix**: Added duplicate detection in SliceStore and form submission debouncing
 - **Location**: `client/src/store/sliceStore.ts`, `client/src/components/SliceForm.tsx`
 
-### 2. Cache Invalidation
+### 5. Cache Invalidation
 - **Issue**: Slice cache not updating after Add/Edit/Delete operations
 - **Fix**: Implemented proper React Query cache invalidation on CRUD operations
 - **Location**: `client/src/store/sliceStore.ts`, `client/src/pages/HomePage.tsx`
 
-### 3. Service Worker Issues
+### 6. Service Worker Issues
 - **Issue**: `/sw.js` returning 404 in production
 - **Root Cause**: Service worker was gitignored and nginx was caching it
 - **Fix**: Updated .gitignore to allow manual service worker, added nginx no-cache config
 - **Location**: `.gitignore`, `nginx.conf`
 
-### 4. Environment Configuration
+### 7. Environment Configuration
 - **Issue**: Development needed separate environment config
 - **Fix**: Added `.env.dev` support with automatic loading in development
 - **Location**: `server/package.json`, `server/src/index.ts`
 
-### 5. Password Migration
+### 8. Password Migration
 - **Issue**: v1.0 users couldn't login after deployment
 - **Fix**: Implemented MD5 to bcrypt password upgrade system
 - **Location**: `server/src/models/User.ts`, `server/src/controllers/authController.ts`
 
-### 6. Database Compatibility
+### 9. Database Compatibility
 - **Issue**: v1.0 slices not loading due to user field mismatch
 - **Fix**: Changed slice.user from ObjectId to username string
 - **Location**: `server/src/models/Slice.ts`, `server/src/controllers/sliceController.ts`

@@ -24,24 +24,13 @@ const router = Router();
 // All slice routes require authentication
 router.use(authenticateToken);
 
-// Specific rate limit for search operations to prevent abuse
-const searchRateLimit = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 10, // limit each IP to 10 search requests per minute
-  message: {
-    success: false,
-    error: 'Too many search requests. Please wait before searching again.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: false
-});
+// Note: Search rate limiting removed to allow unlimited searches for better UX
 
 // Slice CRUD operations
 router.post('/', csrfProtection(), validate(createSliceSchema), createSlice);
 router.get('/', validateQuery(sliceQuerySchema), getSlices);
 router.get('/stats', getSliceStats);
-router.get('/search', searchRateLimit, validateQuery(searchQuerySchema), searchSlices);
+router.get('/search', validateQuery(searchQuerySchema), searchSlices);
 router.get('/:id', getSlice);
 router.put('/:id', csrfProtection(), validate(updateSliceSchema), updateSlice);
 router.delete('/:id', csrfProtection(), deleteSlice);

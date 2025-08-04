@@ -2,6 +2,7 @@ import { Response } from 'express';
 import crypto from 'crypto';
 import { Slice } from '../models/Slice';
 import { AuthenticatedRequest } from '../middleware/auth';
+import { SLICE_TYPES } from '../types/shared';
 
 export const rotateEncryptionKey = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
@@ -47,10 +48,31 @@ export const rotateEncryptionKey = async (req: AuthenticatedRequest, res: Respon
         }
         
         slice.content = content;
+        
+        // Handle unknown slice types by normalizing them to 'other'
+        if (!SLICE_TYPES.includes(slice.type as any)) {
+          console.warn(`Unknown slice type '${slice.type}' found for slice ${slice._id}, normalizing to 'other'`);
+          slice.type = 'other' as any;
+        }
+        
         await slice.save();
         processedCount++;
       } catch (error) {
-        console.error(`Failed to process slice ${slice._id}:`, error);
+        // Handle validation errors specifically
+        if (error instanceof Error && error.message.includes('is not a valid enum value for path `type`')) {
+          console.warn(`Validation error for slice ${slice._id}: ${error.message}`);
+          try {
+            // Force set type to 'other' and retry save
+            slice.type = 'other' as any;
+            await slice.save();
+            processedCount++;
+            console.warn(`Successfully normalized slice ${slice._id} type to 'other'`);
+          } catch (retryError) {
+            console.error(`Failed to save slice ${slice._id} even after type normalization:`, retryError);
+          }
+        } else {
+          console.error(`Failed to process slice ${slice._id}:`, error);
+        }
         // Continue processing other slices even if one fails
       }
     }

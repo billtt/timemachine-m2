@@ -24,10 +24,10 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
-// Rate limiting
+// Rate limiting - Very generous limits for personal app usage
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'),
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '2000'), // 2000 requests per 15 minutes (generous for personal use)
   message: {
     success: false,
     error: 'Too many requests from this IP, please try again later'
