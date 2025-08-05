@@ -27,18 +27,19 @@ router.use(authenticateToken);
 
 // Note: Search rate limiting removed to allow unlimited searches for better UX
 
-// Slice CRUD operations
-router.post('/', csrfProtection(), validate(createSliceSchema), createSlice);
-router.get('/', validateQuery(sliceQuerySchema), getSlices);
-// Add debugging middleware to track which route is matched
+// Add debugging middleware FIRST to catch all requests
 router.use((req, res, next) => {
-  console.log(`Route accessed: ${req.method} ${req.path} ${req.url}`);
+  console.log(`[DEBUG] Slice route accessed: ${req.method} ${req.path} ${req.url} - Params:`, req.params);
   next();
 });
 
+// Slice CRUD operations
+router.post('/', csrfProtection(), validate(createSliceSchema), createSlice);
+router.get('/', validateQuery(sliceQuerySchema), getSlices);
+
 // Specific routes must come before parameterized routes
 router.get('/contents', (req, res, next) => {
-  console.log('Contents route matched!');
+  console.log('[DEBUG] Contents route matched!');
   next();
 }, getSliceContents);  // Content-only endpoint for validation
 router.get('/stats', getSliceStats);
