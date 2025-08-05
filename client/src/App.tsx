@@ -116,8 +116,21 @@ function App() {
             toastOptions={{
               duration: 4000,
               style: {
-                background: 'var(--toast-bg)',
-                color: 'var(--toast-color)',
+                background: '#374151', // gray-700
+                color: '#f9fafb', // gray-50
+                border: '1px solid #4b5563', // gray-600
+              },
+              success: {
+                style: {
+                  background: '#059669', // green-600
+                  color: '#ffffff',
+                },
+              },
+              error: {
+                style: {
+                  background: '#dc2626', // red-600
+                  color: '#ffffff',
+                },
               },
             }}
           />
