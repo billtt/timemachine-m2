@@ -17,6 +17,7 @@ const SearchPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [useRegex, setUseRegex] = useState(false);
   const [showSingleCharPrompt, setShowSingleCharPrompt] = useState(false);
+  const [isEncryptionEnabled, setIsEncryptionEnabled] = useState(false);
   const { privacyMode, isOnline } = useUIStore();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -27,6 +28,15 @@ const SearchPage: React.FC = () => {
     if (searchInputRef.current) {
       searchInputRef.current.focus();
     }
+  }, []);
+
+  // Check encryption status
+  useEffect(() => {
+    const checkEncryption = async () => {
+      await encryptionService.initialize();
+      setIsEncryptionEnabled(encryptionService.isEncryptionEnabled());
+    };
+    checkEncryption();
   }, []);
 
   // Raw search query (returns encrypted data)
@@ -164,7 +174,8 @@ const SearchPage: React.FC = () => {
     // Clear the single character prompt if it was showing
     setShowSingleCharPrompt(false);
     setSearchQuery(query);
-    setUseRegex(data.useRegex || false);
+    // Disable regex when encryption is enabled
+    setUseRegex(encryptionService.isEncryptionEnabled() ? false : (data.useRegex || false));
   };
 
   const handleClearSearch = () => {
@@ -238,23 +249,25 @@ const SearchPage: React.FC = () => {
           />
           
 
-          {/* Filters */}
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="regex"
-                {...register('useRegex')}
-                className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600"
-              />
-              <label htmlFor="regex" className="text-sm text-gray-700 dark:text-gray-300">
-                Use regex
-              </label>
+          {/* Filters - only show regex option when encryption is disabled */}
+          {!isEncryptionEnabled && (
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="regex"
+                  {...register('useRegex')}
+                  className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <label htmlFor="regex" className="text-sm text-gray-700 dark:text-gray-300">
+                  Use regex
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Regex patterns are limited to 100 characters and certain complex patterns are blocked for security.
+              </p>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Regex patterns are limited to 100 characters and certain complex patterns are blocked for security.
-            </p>
-          </div>
+          )}
 
           {/* Actions */}
           <div className="flex space-x-3">
