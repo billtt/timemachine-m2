@@ -236,6 +236,14 @@ class ApiService {
     });
   }
 
+  async getSliceContents(params?: { limit?: number }): Promise<{ contents: string[] }> {
+    return this.request<{ contents: string[] }>({
+      method: 'GET',
+      url: '/slices/contents',
+      params,
+    });
+  }
+
   async getSlice(id: string): Promise<{ slice: Slice }> {
     return this.request<{ slice: Slice }>({
       method: 'GET',

@@ -63,6 +63,7 @@ export const getSlices = asyncHandler(async (req: AuthenticatedRequest, res: Res
     ];
   }
 
+
   // Execute query with pagination
   const skip = (page - 1) * limit;
   
@@ -93,6 +94,23 @@ export const getSlices = asyncHandler(async (req: AuthenticatedRequest, res: Res
         pages: Math.ceil(total / limit)
       }
     }
+  });
+});
+
+export const getSliceContents = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const { limit = 5 } = req.query as any;
+
+  // Fetch only content field for encryption validation
+  const slices = await Slice.find({ user: req.user.username })
+    .select('content')  // Only fetch content field
+    .sort({ createdAt: -1 })
+    .limit(parseInt(limit));
+
+  const contents = slices.map(slice => slice.content);
+
+  res.json({
+    success: true,
+    data: { contents }
   });
 });
 

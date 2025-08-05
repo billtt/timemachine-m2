@@ -103,7 +103,7 @@ const SearchPage: React.FC = () => {
           slices: await Promise.all(
             page.slices.map(async (slice) => ({
               ...slice,
-              content: await encryptionService.decrypt(slice.content)
+              content: await encryptionService.getDisplayText(slice.content)
             }))
           )
         }))

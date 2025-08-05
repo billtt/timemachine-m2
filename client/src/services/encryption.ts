@@ -1,3 +1,5 @@
+import { ENCRYPTION_MESSAGES } from '../../../shared/constants';
+
 export class EncryptionService {
   private static readonly STORAGE_KEY = 'timemachine_encryption_key';
   private encryptionKey: string | null = null;
@@ -56,6 +58,46 @@ export class EncryptionService {
     return !!this.encryptionKey && this.encryptionKey.length > 0;
   }
 
+  // Validate that the current local key state matches server content state
+  async validateLocalKey(): Promise<{ isValid: boolean; error?: string }> {
+    try {
+      // Import apiService dynamically to avoid circular dependency
+      const { default: apiService } = await import('./api');
+      
+      // Fetch only content fields for efficiency
+      const data = await apiService.getSliceContents({ limit: 5 });
+      const contents = data.contents || [];
+
+      if (contents.length === 0) {
+        return { isValid: true }; // No slices to validate against
+      }
+
+      // Try to decrypt each content - fail if any fail
+      for (const content of contents) {
+        if (!content || typeof content !== 'string') continue;
+
+        try {
+          await this.decrypt(content);
+        } catch (error) {
+          // Any decryption failure means validation fails
+          if (error instanceof Error) {
+            return { isValid: false, error: error.message };
+          }
+          return { isValid: false, error: 'Decryption failed' };
+        }
+      }
+
+      // All contents decrypted successfully
+      return { isValid: true };
+
+    } catch (error) {
+      return { 
+        isValid: false, 
+        error: `Key validation failed: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      };
+    }
+  }
+
   // Encrypt content
   async encrypt(content: string): Promise<string> {
     if (!this.isEncryptionEnabled() || !content) return content;
@@ -82,7 +124,7 @@ export class EncryptionService {
     }
   }
 
-  // Decrypt content
+  // Decrypt content - throws error if decryption fails
   async decrypt(encryptedContent: string): Promise<string> {
     if (!encryptedContent) return encryptedContent;
 
@@ -97,19 +139,17 @@ export class EncryptionService {
 
     // Content appears to be encrypted, but check if we have a key
     if (!this.isEncryptionEnabled()) {
-      // Content is encrypted but no local key is set
-      return `🔒 [Incorrect Key]`;
+      throw new Error('Content is encrypted but no local encryption key is set');
     }
 
     // We have a key and content looks encrypted - attempt to decrypt
     try {
-
       // Try to decode base64
       const combined = Uint8Array.from(atob(encryptedContent), c => c.charCodeAt(0));
       
       // Minimum size check (12 bytes IV + at least some data)
       if (combined.length < 13) {
-        return `🔒 [Incorrect Key]`;
+        throw new Error('Encrypted content too short to be valid');
       }
 
       const iv = combined.slice(0, 12);
@@ -125,8 +165,20 @@ export class EncryptionService {
 
       return new TextDecoder().decode(decrypted);
     } catch (error) {
-      // Any decryption failure should show the error message
-      return `🔒 [Incorrect Key]`;
+      throw new Error('Decryption failed - incorrect key or corrupted data');
+    }
+  }
+
+  // Get display text for content (handles decryption errors gracefully)
+  async getDisplayText(content: string): Promise<string> {
+    try {
+      return await this.decrypt(content);
+    } catch (error) {
+      // Return appropriate placeholder based on error type
+      if (error instanceof Error && error.message.includes('no local encryption key')) {
+        return ENCRYPTION_MESSAGES.INCORRECT_KEY;
+      }
+      return ENCRYPTION_MESSAGES.INCORRECT_KEY;
     }
   }
 

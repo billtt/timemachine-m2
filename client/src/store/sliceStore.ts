@@ -45,7 +45,7 @@ export const useSliceStore = create<SliceStore>((set, get) => ({
       const decryptedSlices = await Promise.all(
         slices.map(async (slice) => ({
           ...slice,
-          content: await encryptionService.decrypt(slice.content),
+          content: await encryptionService.getDisplayText(slice.content),
           pending: false
         }))
       );
@@ -264,7 +264,7 @@ export const useSliceStore = create<SliceStore>((set, get) => ({
         await encryptionService.initialize();
         decryptedRealSlice = {
           ...realSlice,
-          content: await encryptionService.decrypt(realSlice.content)
+          content: await encryptionService.getDisplayText(realSlice.content)
         };
       } catch (error) {
         console.error('Failed to decrypt real slice content:', error);

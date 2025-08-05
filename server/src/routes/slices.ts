@@ -7,7 +7,8 @@ import {
   updateSlice, 
   deleteSlice, 
   searchSlices, 
-  getSliceStats 
+  getSliceStats,
+  getSliceContents
 } from '../controllers/sliceController';
 import { validate, validateQuery } from '../middleware/validation';
 import { authenticateToken } from '../middleware/auth';
@@ -29,6 +30,7 @@ router.use(authenticateToken);
 // Slice CRUD operations
 router.post('/', csrfProtection(), validate(createSliceSchema), createSlice);
 router.get('/', validateQuery(sliceQuerySchema), getSlices);
+router.get('/contents', getSliceContents);  // Content-only endpoint for validation
 router.get('/stats', getSliceStats);
 router.get('/search', validateQuery(searchQuerySchema), searchSlices);
 router.get('/:id', getSlice);

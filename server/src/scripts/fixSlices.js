@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { ENCRYPTION_MESSAGES } = require('../../../shared/constants');
 
 // Define the slice schema directly since we can't import from TypeScript
 const sliceSchema = new mongoose.Schema({
@@ -49,7 +50,7 @@ async function fixSlices() {
     console.log('\n1. Fixing slices with missing content field...');
     const missingContentResult = await Slice.updateMany(
       { content: { $exists: false } },
-      { $set: { content: '[Missing Content - Restored]' } }
+      { $set: { content: ENCRYPTION_MESSAGES.MISSING_CONTENT } }
     );
     console.log(`Fixed ${missingContentResult.modifiedCount} slices with missing content field`);
     totalFixed += missingContentResult.modifiedCount;
@@ -58,7 +59,7 @@ async function fixSlices() {
     console.log('\n2. Fixing slices with null content...');
     const nullContentResult = await Slice.updateMany(
       { content: null },
-      { $set: { content: '[Null Content - Restored]' } }
+      { $set: { content: ENCRYPTION_MESSAGES.NULL_CONTENT } }
     );
     console.log(`Fixed ${nullContentResult.modifiedCount} slices with null content`);
     totalFixed += nullContentResult.modifiedCount;
@@ -67,7 +68,7 @@ async function fixSlices() {
     console.log('\n3. Fixing slices with empty string content...');
     const emptyContentResult = await Slice.updateMany(
       { content: '' },
-      { $set: { content: '[Empty Content - Restored]' } }
+      { $set: { content: ENCRYPTION_MESSAGES.EMPTY_CONTENT } }
     );
     console.log(`Fixed ${emptyContentResult.modifiedCount} slices with empty string content`);
     totalFixed += emptyContentResult.modifiedCount;
@@ -79,7 +80,7 @@ async function fixSlices() {
         content: { $exists: true },
         $expr: { $ne: [{ $type: '$content' }, 'string'] }
       },
-      { $set: { content: '[Invalid Content Type - Restored]' } }
+      { $set: { content: ENCRYPTION_MESSAGES.INVALID_CONTENT } }
     );
     console.log(`Fixed ${nonStringResult.modifiedCount} slices with non-string content`);
     totalFixed += nonStringResult.modifiedCount;

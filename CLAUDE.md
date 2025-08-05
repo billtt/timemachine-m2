@@ -364,6 +364,45 @@ pm2 restart time2
 - **Prevention**: Consistent encryption state display across all scenarios
 - **Location**: `client/src/services/encryption.ts`
 
+### 17. Local/Server Encryption State Consistency (CRITICAL)
+- **Issue**: Users could have mismatched local/server encryption states, causing data inconsistency
+- **Scenarios**: 
+  - Local key set but server content is unencrypted → New slices encrypted, old slices plaintext
+  - Local key not set but server content is encrypted → Cannot decrypt existing content
+  - Local key set but wrong key → Cannot decrypt existing content, new slices use wrong key
+- **Data Consistency Risk**: Mixed encryption states make data partially unrecoverable
+- **Fix**: 
+  - Added client-side state validation **only when needed** - during slice create/edit operations
+  - `validateLocalKey()` analyzes server content state and compares with local key state
+  - Validates 5 consistency scenarios: no key/no encryption, key/encryption match, mixed states
+  - Block form submission with specific error messages for each mismatch scenario
+  - Simple approach: no persistent validation state or UI - only validate on actual operations
+- **Prevention**: All slice operations require consistent local/server encryption state
+- **Location**: `client/src/services/encryption.ts`, `client/src/components/SliceForm.tsx`
+
+### 18. Hardcoded Message Constants (Code Quality)
+- **Issue**: Encryption error messages like '🔒 [Incorrect Key]' were hardcoded in multiple places
+- **Maintenance Problem**: Changes required updating multiple files, risk of inconsistency
+- **Fix**: 
+  - Created shared constants file (`shared/constants.ts`) for encryption messages
+  - Centralized all encryption-related UI messages and placeholders
+  - Updated client-side encryption service to use shared constants
+  - Updated server-side encryption controller and database repair scripts
+  - Eliminated duplicate string literals across codebase
+- **Benefits**: Single source of truth for UI messages, easier maintenance, consistent messaging
+- **Location**: `shared/constants.ts`, `client/src/services/encryption.ts`, `server/src/controllers/encryptionController.ts`, `server/src/scripts/fixSlices.js`
+
+### 19. Over-complicated Key Validation UI (Simplification)
+- **Issue**: Initially implemented persistent validation state and real-time validation UI in Settings
+- **Problem**: Unnecessary complexity - validation only needed during actual slice operations
+- **Simplification**: 
+  - Removed persistent `keyValidation` state and `isValidating` state
+  - Removed real-time validation status display and "Test Key" button from Settings
+  - Kept validation logic simple: only validate when user tries to create/edit a slice
+  - Cleaner Settings UI focused on core functionality (set password, update password)
+- **Benefits**: Simpler codebase, better UX - validation happens when needed, not constantly
+- **Location**: `client/src/components/EncryptionSettings.tsx`
+
 ## Security Features
 
 ### CSRF Protection

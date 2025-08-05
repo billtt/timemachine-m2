@@ -4,6 +4,8 @@ import { format } from 'date-fns';
 import { Calendar, Clock, Type } from 'lucide-react';
 import { SliceFormProps, SliceFormData, SliceType } from '../types';
 import Button from './Button';
+import { encryptionService } from '../services/encryption';
+import toast from 'react-hot-toast';
 
 const SliceForm: React.FC<SliceFormProps> = ({
   slice,
@@ -46,13 +48,20 @@ const SliceForm: React.FC<SliceFormProps> = ({
     }
   }, []);
 
-  const handleFormSubmit = (data: SliceFormData) => {
+  const handleFormSubmit = async (data: SliceFormData) => {
     // Prevent rapid successive submissions (debounce)
     const now = Date.now();
     if (now - lastSubmissionRef.current < 1000) {
       return;
     }
     lastSubmissionRef.current = now;
+    
+    // Always validate encryption key state before submitting
+    const validation = await encryptionService.validateLocalKey();
+    if (!validation.isValid) {
+      toast.error(`Cannot save slice: ${validation.error}\n\nPlease check your encryption password in Settings.`);
+      return;
+    }
     
     // Combine date and time
     const combinedDateTime = new Date(`${selectedDate}T${selectedTime}`);

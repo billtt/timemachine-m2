@@ -89,7 +89,7 @@ const HomePage: React.FC = () => {
       // Decrypt slices
       const decryptedSlices = await Promise.all(
         slicesData.slices.map(async (slice) => {
-          const decryptedContent = await encryptionService.decrypt(slice.content);
+          const decryptedContent = await encryptionService.getDisplayText(slice.content);
           return {
             ...slice,
             content: decryptedContent

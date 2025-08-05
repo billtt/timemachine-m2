@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { Slice } from '../models/Slice';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { SLICE_TYPES } from '../types/shared';
+import { ENCRYPTION_MESSAGES } from '../../../shared/constants';
 
 export const rotateEncryptionKey = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
@@ -114,7 +115,7 @@ export const rotateEncryptionKey = async (req: AuthenticatedRequest, res: Respon
           // Handle empty/null content by setting a placeholder
           if (content === null || content === undefined) {
             console.warn(`Setting placeholder content for slice ${slice._id} with null/undefined content`);
-            content = '[Empty Content]';
+            content = ENCRYPTION_MESSAGES.EMPTY_CONTENT;
           } else {
             throw new Error(`Slice ${slice._id} has invalid original content: ${typeof content}`);
           }
@@ -176,7 +177,7 @@ export const rotateEncryptionKey = async (req: AuthenticatedRequest, res: Respon
           // If content is empty, set a placeholder that meets schema requirements
           if (content === '' || !content) {
             console.warn(`Setting placeholder for empty content in slice ${slice._id}`);
-            content = '[Empty Content]';
+            content = ENCRYPTION_MESSAGES.EMPTY_CONTENT;
           } else {
             throw new Error(`Final content validation failed for slice ${slice._id}: ${typeof content}`);
           }
