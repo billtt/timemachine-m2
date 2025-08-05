@@ -252,9 +252,14 @@ Before setting up encryption, it's important to understand what you might see:
   - Periodic password rotation
   - If you suspect your password was compromised
 - **What it does**: 
-  - Changes the encryption key for all your data
+  - Validates the old password by testing it on your recent slices
   - Re-encrypts all existing slices with the new password (or decrypts if password is empty)
+  - Uses a two-phase commit process to prevent data corruption
   - Updates all devices to require the new password
+- **Safety Features**:
+  - **Key Validation**: Tests old password on 10 recent slices before proceeding
+  - **Atomic Operation**: Uses temporary storage to ensure all-or-nothing updates
+  - **Automatic Rollback**: Cleans up on failure to prevent partial updates
 - **Requirements**: Must know the current encryption password (if any)
 - **Warning**: This is a server-side operation that affects all your data
 

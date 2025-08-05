@@ -81,14 +81,21 @@ export const EncryptionSettings: React.FC = () => {
     
     try {
       const oldKey = encryptionService.getStoredKey() || '';
-      await encryptionService.setPassword(newPassword);
-      const newKey = encryptionService.getStoredKey() || '';
+      
+      // Generate new key without storing it yet
+      let newKey = '';
+      if (newPassword) {
+        newKey = await encryptionService.deriveKey(newPassword);
+      }
 
-      // Send key rotation request to server
+      // Send key rotation request to server FIRST
       const response = await apiService.rotateEncryptionKey({
         oldKey,
         newKey
       });
+
+      // Only update local password AFTER server operation succeeds
+      await encryptionService.setPassword(newPassword);
 
       if (newPassword) {
         toast.success(`Encryption password updated. ${response.slicesUpdated} slices re-encrypted.`);
@@ -105,7 +112,8 @@ export const EncryptionSettings: React.FC = () => {
       // Reload slices with new encryption
       window.location.reload();
     } catch (error) {
-      toast.error('Failed to update encryption password');
+      // Server operation failed - local password remains unchanged
+      toast.error('Failed to update encryption password. Local settings unchanged.');
       console.error('Update error:', error);
     } finally {
       setIsUpdating(false);

@@ -186,9 +186,11 @@ RATE_LIMIT_MAX_REQUESTS=2000
 2. Update `SLICE_TYPES` array in same file
 3. Types are automatically validated in both client and server
 
-### Database Migrations
+### Database Migrations & Maintenance
 - Run migration script: `cd server && npm run migrate`
 - Fix unknown slice types: `cd server && npm run fix-slice-types`
+- Inspect for problematic slices: `cd server && node src/scripts/inspectSlices.js`
+- Fix slices with invalid content: `cd server && node src/scripts/fixSlices.js`
 - Schema changes are handled via Mongoose model updates
 
 ### Debugging
@@ -222,7 +224,16 @@ pm2 restart time2
 
 ## Recent Bug Fixes & Improvements
 
-### 1. Rate Limiting Issues Fixed
+### 1. Encryption Key Rotation Safety Measures
+- **Issue**: Key rotation could cause data corruption if it fails midway, leaving slices encrypted with different keys
+- **Risk**: Users could lose access to data if old key validation fails or process is interrupted
+- **Fix**: 
+  - **Safety Measure 1**: Old key validation - tests old password on 10 recent slices before proceeding
+  - **Safety Measure 2**: Two-phase commit - uses temporary fields, then atomic MongoDB updates
+  - **Automatic cleanup**: Removes temporary fields on any failure
+- **Location**: `server/src/controllers/encryptionController.ts`
+
+### 2. Rate Limiting Issues Fixed
 - **Issue**: Users getting rate limit errors during normal usage
   - "Too many search requests. Please wait before searching again" (search-specific)
   - "Too many requests from this IP, please try again later" (general API)
@@ -233,7 +244,7 @@ pm2 restart time2
   - Added environment variables for customizable rate limiting
 - **Location**: `server/src/routes/slices.ts`, `server/src/app.ts`
 
-### 2. Encryption Timeout Issues
+### 3. Encryption Timeout Issues
 - **Issue**: Encryption password updates timeout when processing large datasets (many slices)
 - **Error**: Request timeout after 10 seconds during key rotation with large slice counts
 - **Fix**: 
@@ -243,7 +254,7 @@ pm2 restart time2
   - Enhanced error messages for encryption operation timeouts
 - **Location**: `client/src/services/api.ts`, `server/src/routes/encryption.ts`
 
-### 3. Unknown Slice Types Handling
+### 4. Unknown Slice Types Handling
 - **Issue**: Production database contains slice types not in current code (e.g., 'sport')
 - **Error**: `ValidatorError: 'sport' is not a valid enum value for path 'type'` during encryption key rotation
 - **Fix**: 
@@ -252,36 +263,106 @@ pm2 restart time2
   - Created migration script to fix existing data: `npm run fix-slice-types`
 - **Location**: `shared/types.ts`, `server/src/controllers/encryptionController.ts`, `server/src/scripts/fix-slice-types.ts`
 
-### 4. Duplicate Slice Prevention
+### 5. Duplicate Slice Prevention
 - **Issue**: Network issues/idle sessions causing duplicate slice creation
 - **Fix**: Added duplicate detection in SliceStore and form submission debouncing
 - **Location**: `client/src/store/sliceStore.ts`, `client/src/components/SliceForm.tsx`
 
-### 5. Cache Invalidation
+### 6. Cache Invalidation
 - **Issue**: Slice cache not updating after Add/Edit/Delete operations
 - **Fix**: Implemented proper React Query cache invalidation on CRUD operations
 - **Location**: `client/src/store/sliceStore.ts`, `client/src/pages/HomePage.tsx`
 
-### 6. Service Worker Issues
+### 7. Service Worker Issues
 - **Issue**: `/sw.js` returning 404 in production
 - **Root Cause**: Service worker was gitignored and nginx was caching it
 - **Fix**: Updated .gitignore to allow manual service worker, added nginx no-cache config
 - **Location**: `.gitignore`, `nginx.conf`
 
-### 7. Environment Configuration
+### 8. Environment Configuration
 - **Issue**: Development needed separate environment config
 - **Fix**: Added `.env.dev` support with automatic loading in development
 - **Location**: `server/package.json`, `server/src/index.ts`
 
-### 8. Password Migration
+### 9. Password Migration
 - **Issue**: v1.0 users couldn't login after deployment
 - **Fix**: Implemented MD5 to bcrypt password upgrade system
 - **Location**: `server/src/models/User.ts`, `server/src/controllers/authController.ts`
 
-### 9. Database Compatibility
+### 10. Database Compatibility
 - **Issue**: v1.0 slices not loading due to user field mismatch
 - **Fix**: Changed slice.user from ObjectId to username string
 - **Location**: `server/src/models/Slice.ts`, `server/src/controllers/sliceController.ts`
+
+### 11. Content Validation Error During Key Rotation
+- **Issue**: Key rotation failing with "Path `content` is required" error on slices with null/empty content
+- **Root Cause**: Database contained 3 legacy slices with missing or empty content fields from historical data
+- **Fix**: 
+  - Created database inspection script (`server/src/scripts/inspectSlices.js`) to identify problematic slices
+  - Created repair script (`server/src/scripts/fixSlices.js`) to fix slices with missing/null/empty content
+  - Added pre-rotation validation to detect and prevent processing of invalid slices
+  - Enhanced error messages to guide users to run repair scripts
+- **Prevention**: Pre-rotation validation now checks all slices before starting encryption process
+- **Location**: `server/src/scripts/inspectSlices.js`, `server/src/scripts/fixSlices.js`, `server/src/controllers/encryptionController.ts`
+
+### 12. Client Password Update on Server Failure
+- **Issue**: When server-side password update fails, client still updates local password, creating inconsistency
+- **Problem**: Local password is updated before server operation, leading to mismatched encryption keys
+- **Fix**: 
+  - Generate new encryption key without storing it locally first
+  - Send server update request with old and new keys
+  - Only update local password AFTER server operation succeeds
+  - Enhanced error message to indicate local settings remain unchanged on failure
+- **Prevention**: Ensures client-server encryption key consistency in all scenarios
+- **Location**: `client/src/components/EncryptionSettings.tsx`
+
+### 13. TempContent Undefined Error in Key Rotation
+- **Issue**: `tempContent` field returning `undefined` during key rotation, causing validation errors
+- **Root Cause**: Mongoose schema didn't include `tempContent` and `tempSearchTokens` fields, so `slice.set()` calls were ignored due to strict mode
+- **Error**: "TempContent is invalid before save for slice [id]: undefined"
+- **Fix**: 
+  - Added `tempContent` and `tempSearchTokens` as optional fields to Slice schema
+  - Fixed double decryption bug in search token generation (was decrypting already encrypted content)
+  - Enhanced validation in encryption/decryption helper functions
+  - Improved error messages with detailed debugging information
+- **Prevention**: Schema now properly supports temporary fields needed for atomic operations
+- **Location**: `server/src/models/Slice.ts`, `server/src/controllers/encryptionController.ts`
+
+### 14. Data Corruption from Incorrect Key Validation (CRITICAL)
+- **Issue**: When incorrect old key is provided, decryption fails but fallback logic causes data corruption
+- **Problem**: `decryptContent` falls back to returning encrypted content when decryption fails, causing double encryption
+- **Data Loss Risk**: All user slices get corrupted with double encryption and become unrecoverable
+- **Error Pattern**: "Unsupported state or unable to authenticate data" for every slice, but operation continues
+- **Fix**: 
+  - Created `decryptContentStrict()` function that throws errors instead of falling back
+  - Used strict decryption for key rotation validation and processing
+  - Enhanced old key validation with proper error handling and reporting
+  - Key rotation now fails fast on first decryption error instead of corrupting all data
+- **Prevention**: Strict validation prevents any key rotation with incorrect old keys
+- **Location**: `server/src/controllers/encryptionController.ts`
+
+### 15. Content Exposure in Error Logs (Security)
+- **Issue**: Server logs were displaying encrypted content and plaintext content in error messages during key rotation
+- **Security Risk**: Sensitive user data (even if encrypted) should never appear in server logs
+- **Fix**: 
+  - Removed all `contentPreview`, `encryptedPreview`, and `value` logging from error messages
+  - Replaced with safe metadata like content length, type, and isEmpty flags
+  - Ensured no actual slice content is logged during validation or processing errors
+  - Maintained useful debugging information without exposing sensitive data
+- **Prevention**: Server logs now only contain metadata, never actual user content
+- **Location**: `server/src/controllers/encryptionController.ts`
+
+### 16. Encrypted Content Display Without Local Key (UX)
+- **Issue**: When content is encrypted on server but no local key is set, client displays raw encrypted text instead of placeholder
+- **Problem**: Inconsistent UX - should show same "🔒 [Incorrect Key]" message as when wrong key is set
+- **User Experience**: Users see base64 encrypted strings instead of clear indication they need to set their encryption password
+- **Fix**: 
+  - Modified client decrypt logic to detect encrypted content even when no local key is set
+  - Check if content looks like encrypted data (base64 + sufficient length) before checking for local key
+  - Show "🔒 [Incorrect Key]" placeholder when encrypted content detected but no local key available
+  - Maintain backward compatibility for actual plaintext content
+- **Prevention**: Consistent encryption state display across all scenarios
+- **Location**: `client/src/services/encryption.ts`
 
 ## Security Features
 

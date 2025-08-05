@@ -7,6 +7,8 @@ export interface ISlice extends Document {
   user: string;  // Changed from ObjectId to string (username)
   time: Date;
   searchTokens?: string[];
+  tempContent?: string;  // Temporary field for key rotation
+  tempSearchTokens?: string[];  // Temporary field for key rotation
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,6 +41,14 @@ const sliceSchema = new Schema<ISlice>(
     searchTokens: {
       type: [String],
       default: []
+    },
+    tempContent: {
+      type: String,
+      required: false
+    },
+    tempSearchTokens: {
+      type: [String],
+      required: false
     }
   },
   {

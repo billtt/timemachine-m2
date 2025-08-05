@@ -84,19 +84,25 @@ export class EncryptionService {
 
   // Decrypt content
   async decrypt(encryptedContent: string): Promise<string> {
-    if (!this.isEncryptionEnabled() || !encryptedContent) return encryptedContent;
+    if (!encryptedContent) return encryptedContent;
 
-    // When encryption is enabled, always attempt to decrypt
-    // If content is not encrypted, show error message
+    // Check if content looks like encrypted data (base64 with reasonable length)
+    const isBase64 = /^[A-Za-z0-9+/]+=*$/.test(encryptedContent);
+    const isLongEnough = encryptedContent.length > 16; // Encrypted content should be longer
+    
+    // If content doesn't look encrypted, return as-is (probably plaintext)
+    if (!isBase64 || !isLongEnough) {
+      return encryptedContent;
+    }
+
+    // Content appears to be encrypted, but check if we have a key
+    if (!this.isEncryptionEnabled()) {
+      // Content is encrypted but no local key is set
+      return `🔒 [Incorrect Key]`;
+    }
+
+    // We have a key and content looks encrypted - attempt to decrypt
     try {
-      // First, check if it looks like proper base64 encrypted data
-      const isBase64 = /^[A-Za-z0-9+/]+=*$/.test(encryptedContent);
-      const isLongEnough = encryptedContent.length > 16; // Encrypted content should be longer
-      
-      if (!isBase64 || !isLongEnough) {
-        // Content doesn't look like encrypted data
-        return `🔒 [Incorrect Key]`;
-      }
 
       // Try to decode base64
       const combined = Uint8Array.from(atob(encryptedContent), c => c.charCodeAt(0));
