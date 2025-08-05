@@ -30,10 +30,24 @@ router.use(authenticateToken);
 // Slice CRUD operations
 router.post('/', csrfProtection(), validate(createSliceSchema), createSlice);
 router.get('/', validateQuery(sliceQuerySchema), getSlices);
-router.get('/contents', getSliceContents);  // Content-only endpoint for validation
+// Add debugging middleware to track which route is matched
+router.use((req, res, next) => {
+  console.log(`Route accessed: ${req.method} ${req.path} ${req.url}`);
+  next();
+});
+
+// Specific routes must come before parameterized routes
+router.get('/contents', (req, res, next) => {
+  console.log('Contents route matched!');
+  next();
+}, getSliceContents);  // Content-only endpoint for validation
 router.get('/stats', getSliceStats);
 router.get('/search', validateQuery(searchQuerySchema), searchSlices);
-router.get('/:id', getSlice);
+// Parameterized routes come last
+router.get('/:id', (req, res, next) => {
+  console.log(`ID route matched with id: ${req.params.id}`);
+  next();
+}, getSlice);
 router.put('/:id', csrfProtection(), validate(updateSliceSchema), updateSlice);
 router.delete('/:id', csrfProtection(), deleteSlice);
 

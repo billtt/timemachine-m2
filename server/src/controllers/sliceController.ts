@@ -101,22 +101,33 @@ export const getSlices = asyncHandler(async (req: AuthenticatedRequest, res: Res
 export const getSliceContents = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { limit = 5 } = req.query as any;
 
-  // Fetch only content field for encryption validation
-  const slices = await Slice.find({ user: req.user.username })
-    .select('content')  // Only fetch content field
-    .sort({ createdAt: -1 })
-    .limit(parseInt(limit));
+  console.log('getSliceContents called with params:', req.params, 'query:', req.query, 'user:', req.user?.username);
 
-  const contents = slices.map(slice => slice.content);
+  try {
+    // Fetch only content field for encryption validation
+    const slices = await Slice.find({ user: req.user.username })
+      .select('content')  // Only fetch content field
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit));
 
-  res.json({
-    success: true,
-    data: { contents }
-  });
+    console.log(`Found ${slices.length} slices for user ${req.user.username}`);
+
+    const contents = slices.map(slice => slice.content);
+
+    res.json({
+      success: true,
+      data: { contents }
+    });
+  } catch (error) {
+    console.error('Error in getSliceContents:', error);
+    throw error;
+  }
 });
 
 export const getSlice = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
+
+  console.log('getSlice called with id:', id, 'params:', req.params, 'url:', req.url);
 
   const slice = await Slice.findOne({ 
     _id: id, 
