@@ -14,6 +14,7 @@ A modern rewrite of the TimeMachine personal life tracking application using the
 - **Dark Mode**: Toggle between light and dark themes
 - **Privacy Mode**: Quickly hide sensitive content (press Q)
 - **Advanced Search**: Full-text search with secure regex support and input validation
+- **End-to-End Encryption**: Client-side AES-256-GCM encryption with bigram search support
 - **Authentication**: JWT-based secure authentication with CSRF protection
 - **Security**: Comprehensive security features including CSRF protection, input validation, and ReDoS prevention
 - **Modern UI**: Clean, intuitive interface with animations
@@ -43,6 +44,7 @@ A modern rewrite of the TimeMachine personal life tracking application using the
 - **React Hook Form**: Form handling
 - **IndexedDB**: Offline storage
 - **Service Workers**: PWA functionality
+- **Web Crypto API**: Client-side encryption (AES-256-GCM)
 - **CSRF Client**: Automatic CSRF token management and injection
 
 ## Project Structure
@@ -124,6 +126,8 @@ JWT_SECRET=your-secret-key
 JWT_EXPIRES_IN=7d
 BCRYPT_ROUNDS=12
 CORS_ORIGIN=http://localhost:3000
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=2000
 ```
 
 ### Client (Optional)
@@ -159,6 +163,9 @@ VITE_API_URL=http://localhost:3001/api
 - `GET /api/sync/last-sync` - Get last sync time
 - `GET /api/sync/since` - Get slices since timestamp
 
+### Encryption
+- `POST /api/encryption/rotate-key` - Rotate encryption key for all user data (CSRF protected, extended timeout)
+
 ## PWA Features
 
 ### Installation
@@ -176,6 +183,170 @@ VITE_API_URL=http://localhost:3001/api
 - Caches app shell and assets
 - Handles offline scenarios
 - Background sync for pending data
+
+## End-to-End Encryption
+
+TimeMachine 2.0 features robust client-side encryption to protect your personal data. All slice content can be encrypted before being sent to the server, ensuring that only you can read your data.
+
+### How It Works
+
+1. **Client-Side Encryption**: All encryption/decryption happens in your browser using the Web Crypto API
+2. **AES-256-GCM**: Industry-standard encryption with authenticated encryption
+3. **Privacy-Focused**: Your encryption key is only sent during password updates, and decrypted content is not stored on the server
+4. **Optional**: Encryption is completely optional - enable it when you need extra privacy
+
+### Key Features
+
+#### 🔐 **Strong Encryption**
+- **Algorithm**: AES-256-GCM (Galois/Counter Mode)
+- **Key Derivation**: SHA-256 hash of your password
+- **Random IV**: Each encrypted slice uses a unique initialization vector
+- **Authentication Tag**: Prevents tampering and ensures data integrity
+
+#### 🔍 **Encrypted Search**
+- **Bigram Tokenization**: Search works even with encrypted content
+- **Privacy-Preserving**: Search tokens don't reveal your actual content
+- **Client-Side Filtering**: Final filtering happens locally for maximum privacy
+- **Minimum Query Length**: 2 characters required for encrypted search
+
+#### 🔄 **Key Management**
+- **Password-Based**: Your encryption key is derived from your chosen password
+- **Key Rotation**: Change your encryption password and re-encrypt all data
+- **Backwards Compatible**: Works alongside unencrypted data
+- **Local Storage**: Encryption keys are stored securely in your browser
+
+### Understanding Encryption States
+
+Before setting up encryption, it's important to understand what you might see:
+
+#### **Content Display States**
+1. **Normal Content**: You can read slices normally
+   - ✅ No encryption is used, OR
+   - ✅ Encryption is enabled and your local password is correct
+
+2. **🔒 [Incorrect Key]**: Slices show this message
+   - ❌ Content is encrypted but you haven't set the password locally
+   - ❌ Your local password doesn't match the encryption
+   - Common scenarios:
+     - You just logged in and haven't entered your encryption password
+     - You set/changed the password on another device
+
+### Encryption Password Functions
+
+#### **"Set Password" vs "Update Password"**
+
+**🔑 Set Password (Enter Local Encryption Key)**
+- **When to use**: 
+  - First time accessing encrypted content on a device
+  - After logging in when you see "🔒 [Incorrect Key]"
+  - After clearing browser data
+  - When using a new browser/device
+- **What it does**: Stores the encryption password in your browser's local storage
+- **Effect**: Allows you to decrypt and view existing encrypted content
+
+**🔄 Update Password (Change Encryption Key)**
+- **When to use**: 
+  - Enable encryption for the first time (encrypt all existing unencrypted content)
+  - Disable encryption completely (decrypt all content by setting empty password)
+  - Change your encryption password for security
+  - Periodic password rotation
+  - If you suspect your password was compromised
+- **What it does**: 
+  - Changes the encryption key for all your data
+  - Re-encrypts all existing slices with the new password (or decrypts if password is empty)
+  - Updates all devices to require the new password
+- **Requirements**: Must know the current encryption password (if any)
+- **Warning**: This is a server-side operation that affects all your data
+
+### Quick Reference
+
+| Situation | What You See | What To Do |
+|-----------|--------------|------------|
+| Never used encryption | Normal content | Enable encryption → Set Password |
+| Just logged in | 🔒 [Incorrect Key] | Set Password (enter existing password) |
+| New device/browser | 🔒 [Incorrect Key] | Set Password (enter existing password) |
+| Cleared browser data | 🔒 [Incorrect Key] | Set Password (enter existing password) |
+| Want to change password | Normal content | Update Password (requires current password) |
+| Forgot password | 🔒 [Incorrect Key] | No recovery possible - data is lost |
+| Someone else changed password | 🔒 [Incorrect Key] | Get new password → Set Password |
+
+
+#### **Technical Details**
+- **Encryption**: AES-256-GCM with 96-bit IV and 128-bit authentication tag
+- **Key Storage**: Browser localStorage (cleared on logout)
+- **Search Tokens**: SHA-256 hashed bigrams for encrypted search
+- **Performance**: Minimal impact on app responsiveness
+
+### How Encrypted Search Works
+
+1. **Content Indexing**: When you save encrypted content:
+   - Text is broken into 2-character sequences (bigrams)
+   - Each bigram is hashed with your encryption key
+   - Hash tokens are stored on the server (not the original text)
+
+2. **Search Query Processing**:
+   - Your search query is broken into bigrams
+   - Bigrams are hashed with your encryption key
+   - Server finds slices containing matching tokens
+   - Results are decrypted client-side
+   - Final filtering removes false positives
+
+3. **Privacy Benefits**:
+   - Server doesn't see your search terms (only hashed tokens)
+   - Server doesn't store your decrypted content
+   - Search tokens don't reveal actual content
+   - Only you can decrypt the results
+
+### Security Considerations
+
+#### **What's Protected**
+- ✅ Slice content is encrypted
+- ✅ Search queries are private
+- ✅ Data is encrypted at rest on the server
+- ✅ Encryption keys are only sent during password updates (not stored on server)
+
+#### **What's Not Encrypted**
+- ❌ Slice timestamps (needed for sorting/filtering)
+- ❌ Slice types (work, fun, gym, etc.)
+- ❌ User account information
+- ❌ App metadata and structure
+
+#### **Important Notes**
+- **Backup Your Password**: If you forget your encryption password, your data cannot be recovered
+- **Browser Dependency**: Encryption keys are stored in your browser - clearing browser data will require re-entering your password
+- **Performance**: Large datasets may take time to encrypt/decrypt initially
+- **Search Limitations**: Encrypted search requires minimum 2-character queries
+
+### Migration and Compatibility
+
+#### **Enabling Encryption on Existing Data**
+- Existing unencrypted slices remain readable
+- New slices are automatically encrypted
+- Use "Encrypt All Data" to encrypt existing content (requires Update Password operation)
+
+#### **Disabling Encryption**
+- **Important**: Does NOT decrypt existing encrypted data
+- New slices will be saved unencrypted
+- Previously encrypted data will show as "🔒 [Incorrect Key]"
+- To fully disable: First decrypt all data using "Update Password" with empty new password
+
+#### **Mixed Encrypted/Unencrypted Data**
+- The system supports having both encrypted and unencrypted slices
+- Unencrypted slices are always readable
+- Encrypted slices require the correct password to be set locally
+- Search works across both types when password is correct
+
+#### **Cross-Device Synchronization**
+- Encryption passwords are NOT synced between devices
+- Each device must have the password set locally using "Set Password"
+- The actual encrypted data syncs normally through the server
+- Different devices can have different local passwords temporarily (but only the correct one works)
+
+#### **Data Export/Import**
+- Encrypted data is exported in encrypted form
+- Import requires the same encryption password
+- Consider decrypting before export for portability
+- Exported encrypted data cannot be read without the password
 
 ## Database Migration
 
@@ -239,6 +410,10 @@ npm run lint
 
 # Type checking
 npm run typecheck
+
+# Database maintenance
+cd server && npm run migrate
+cd server && npm run fix-slice-types
 ```
 
 ### Code Quality
@@ -275,6 +450,12 @@ pm2 monit
 ```
 
 ## Security Features
+
+### End-to-End Encryption
+- Client-side AES-256-GCM encryption
+- Privacy-focused architecture (server doesn't store decrypted content)
+- Secure key derivation from user passwords
+- Encrypted search with privacy-preserving bigram tokenization
 
 ### Authentication & Authorization
 - JWT authentication with secure token handling
@@ -360,3 +541,13 @@ MIT License - see LICENSE file for details
 - Improved security headers configuration
 - Enhanced regex pattern validation
 - Added timeout protection for operations
+
+### v2.1.0 (Encryption & Improvements)
+- **End-to-End Encryption**: Client-side AES-256-GCM encryption
+- **Encrypted Search**: Bigram tokenization for privacy-preserving search
+- **Key Management**: Secure encryption password rotation
+- **Rate Limiting Improvements**: Removed restrictive search limits, increased general API limits
+- **Timeout Handling**: Extended timeouts for encryption operations
+- **Unknown Type Handling**: Automatic normalization of legacy slice types
+- **Security Logging**: Removed sensitive information from server logs
+- **Database Migration Tools**: Scripts for data type fixes and maintenance
