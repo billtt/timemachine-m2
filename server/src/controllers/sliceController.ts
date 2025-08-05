@@ -4,6 +4,7 @@ import { asyncHandler, createError } from '../middleware/errorHandler';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { CreateSliceData, UpdateSliceData } from '../types/validation';
 import { SliceType } from '../types/shared';
+import { PAGINATION } from '../../../shared/constants';
 
 export const createSlice = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { content, type, time, searchTokens }: CreateSliceData = req.body;
@@ -31,7 +32,7 @@ export const createSlice = asyncHandler(async (req: AuthenticatedRequest, res: R
 });
 
 export const getSlices = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const { page = 1, limit = 50, startDate, endDate, type, search } = req.query as any;
+  const { page = PAGINATION.DEFAULT_PAGE, limit = PAGINATION.DEFAULT_PAGE_SIZE, startDate, endDate, type, search } = req.query as any;
 
 
   // Build query using username (compatible with v1.0 data)
@@ -254,10 +255,10 @@ const executeRegexWithTimeout = async (query: any, page: number, limit: number, 
 };
 
 export const searchSlices = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const { q, page: pageStr = '1', limit: limitStr = '50', type, useRegex: useRegexStr, searchTokens }: any = req.query;
+  const { q, page: pageStr = PAGINATION.DEFAULT_PAGE.toString(), limit: limitStr = PAGINATION.DEFAULT_PAGE_SIZE.toString(), type, useRegex: useRegexStr, searchTokens }: any = req.query;
   
-  const page = parseInt(pageStr as string, 10) || 1;
-  const limit = Math.min(parseInt(limitStr as string, 10) || 50, 100);
+  const page = parseInt(pageStr as string, 10) || PAGINATION.DEFAULT_PAGE;
+  const limit = Math.min(parseInt(limitStr as string, 10) || PAGINATION.DEFAULT_PAGE_SIZE, PAGINATION.MAX_PAGE_SIZE);
   const useRegex = useRegexStr === 'true';
 
   // Build query using username (compatible with v1.0 data)

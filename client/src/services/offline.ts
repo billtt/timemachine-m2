@@ -1,6 +1,7 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { OfflineSlice, Slice } from '../types';
 import { v4 as uuidv4 } from 'uuid';
+import { PAGINATION } from '../../../shared/constants';
 
 // @ts-ignore - Temporary fix for schema typing issue
 interface TimeMachineDB extends DBSchema {
@@ -81,7 +82,7 @@ class OfflineStorageService {
     await tx.done;
   }
 
-  async getCachedSlices(limit = 50): Promise<Slice[]> {
+  async getCachedSlices(limit = PAGINATION.DEFAULT_PAGE_SIZE): Promise<Slice[]> {
     const db = await this.ensureDb();
     const tx = db.transaction('slices', 'readonly');
     const index = tx.store.index('by-time');

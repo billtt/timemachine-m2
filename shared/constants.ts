@@ -15,5 +15,12 @@ export const ENCRYPTION_CONFIG = {
   INCORRECT_KEY_TEXT: '[Incorrect Key]'
 } as const;
 
+// Pagination constants
+export const PAGINATION = {
+  DEFAULT_PAGE_SIZE: 500,
+  MAX_PAGE_SIZE: 1000,
+  DEFAULT_PAGE: 1
+} as const;
+
 // Type for accessing message keys
 export type EncryptionMessageKey = keyof typeof ENCRYPTION_MESSAGES;

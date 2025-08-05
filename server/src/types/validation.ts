@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { SLICE_TYPES } from './shared';
+import { PAGINATION } from '../../../shared/constants';
 
 // Auth validation schemas
 export const loginSchema = z.object({
@@ -31,7 +32,7 @@ export const updateSliceSchema = z.object({
 // Query validation schemas
 export const sliceQuerySchema = z.object({
   page: z.string().transform(val => parseInt(val, 10)).pipe(z.number().min(1)).optional(),
-  limit: z.string().transform(val => parseInt(val, 10)).pipe(z.number().min(1).max(100)).optional(),
+  limit: z.string().transform(val => parseInt(val, 10)).pipe(z.number().min(1).max(PAGINATION.MAX_PAGE_SIZE)).optional(),
   startDate: z.string().datetime().optional(),
   endDate: z.string().datetime().optional(),
   type: z.enum(SLICE_TYPES as [string, ...string[]]).optional().or(z.literal('')).transform(val => val === '' ? undefined : val),
@@ -41,7 +42,7 @@ export const sliceQuerySchema = z.object({
 export const searchQuerySchema = z.object({
   q: z.string().min(1).max(200),
   page: z.string().transform(val => parseInt(val, 10)).pipe(z.number().min(1)).optional(),
-  limit: z.string().transform(val => parseInt(val, 10)).pipe(z.number().min(1).max(100)).optional(),
+  limit: z.string().transform(val => parseInt(val, 10)).pipe(z.number().min(1).max(PAGINATION.MAX_PAGE_SIZE)).optional(),
   type: z.enum(SLICE_TYPES as [string, ...string[]]).optional().or(z.literal('')).transform(val => val === '' ? undefined : val),
   useRegex: z.string().transform(val => val === 'true').optional()
 });

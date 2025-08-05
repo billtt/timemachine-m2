@@ -11,6 +11,7 @@ import SliceItem from '../components/SliceItem';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import Loading from '../components/Loading';
+import { PAGINATION } from '../../../shared/constants';
 
 const SearchPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -40,14 +41,14 @@ const SearchPage: React.FC = () => {
   } = useInfiniteQuery({
     queryKey: ['raw-search', searchQuery, useRegex],
     queryFn: async ({ pageParam = 1 }) => {
-      if (!searchQuery.trim()) return { slices: [], total: 0, pagination: { page: 1, limit: 50, total: 0, pages: 1 } };
+      if (!searchQuery.trim()) return { slices: [], total: 0, pagination: { page: PAGINATION.DEFAULT_PAGE, limit: PAGINATION.DEFAULT_PAGE_SIZE, total: 0, pages: 1 } };
       
       if (isOnline) {
         let searchParams: any = {
           q: searchQuery,
           useRegex,
           page: pageParam as number,
-          limit: 50
+          limit: PAGINATION.DEFAULT_PAGE_SIZE
         };
 
         // If encryption is enabled, generate search tokens
@@ -65,7 +66,7 @@ const SearchPage: React.FC = () => {
         return {
           slices: results,
           total: results.length,
-          pagination: { page: 1, limit: 50, total: results.length, pages: 1 }
+          pagination: { page: PAGINATION.DEFAULT_PAGE, limit: PAGINATION.DEFAULT_PAGE_SIZE, total: results.length, pages: 1 }
         };
       }
     },
@@ -343,7 +344,7 @@ const SearchPage: React.FC = () => {
             )}
             
             {/* Manual load more button (fallback) */}
-            {hasNextPage && !isFetchingNextPage && allSlices.length >= 50 && (
+            {hasNextPage && !isFetchingNextPage && allSlices.length >= PAGINATION.DEFAULT_PAGE_SIZE && (
               <div className="flex justify-center py-8">
                 <Button
                   onClick={() => fetchNextPage()}
@@ -356,7 +357,7 @@ const SearchPage: React.FC = () => {
             )}
             
             {/* End of results indicator */}
-            {!hasNextPage && allSlices.length >= 50 && (
+            {!hasNextPage && allSlices.length >= PAGINATION.DEFAULT_PAGE_SIZE && (
               <div className="flex justify-center items-center py-8">
                 <div className="text-center">
                   <div className="w-8 h-px bg-gray-300 dark:bg-gray-600 mx-auto mb-2"></div>

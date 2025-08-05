@@ -17,6 +17,7 @@ import Loading from '../components/Loading';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import PullToRefresh from '../components/PullToRefresh';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { PAGINATION } from '../../../shared/constants';
 
 const HomePage: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -68,7 +69,7 @@ const HomePage: React.FC = () => {
             const sliceDate = new Date(slice.time);
             return sliceDate >= startOfDay(selectedDate) && sliceDate <= endOfDay(selectedDate);
           }),
-          pagination: { page: 1, limit: 50, total: 0, pages: 1 }
+          pagination: { page: PAGINATION.DEFAULT_PAGE, limit: PAGINATION.DEFAULT_PAGE_SIZE, total: 0, pages: 1 }
         };
       }
     },
