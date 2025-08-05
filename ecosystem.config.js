@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'time2',
-      script: './server/dist/index.js',
+      script: './server/dist/server/src/index.js',
       cwd: '/data/time2',
       instances: 1,
       exec_mode: 'cluster',

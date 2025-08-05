@@ -52,12 +52,6 @@ app.use(cookieParser());
 // Compression
 app.use(compression());
 
-// Debug middleware to track all API requests
-app.use('/api', (req, res, next) => {
-  console.log(`[DEBUG APP] API Request: ${req.method} ${req.path} ${req.url}`);
-  next();
-});
-
 // API routes
 app.use('/api', routes);
 

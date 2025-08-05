@@ -10,12 +10,11 @@ const router = Router();
 
 // Health check endpoint
 router.get('/health', (req, res) => {
-  console.log('[DEBUG] Health check called!');
   res.json({
     success: true,
-    message: 'TimeMachine API is running - UPDATED VERSION',
+    message: 'TimeMachine API is running',
     timestamp: new Date().toISOString(),
-    version: '2.0.1-debug'
+    version: '2.0.0'
   });
 });
 
