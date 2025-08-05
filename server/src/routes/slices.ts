@@ -22,6 +22,16 @@ import {
 
 const router = Router();
 
+// Test endpoint to verify deployment (before auth middleware)
+router.get('/test-debug', (req, res) => {
+  console.log('[DEBUG] Test endpoint called!');
+  res.json({ 
+    success: true, 
+    message: 'Debug test endpoint working', 
+    timestamp: new Date().toISOString() 
+  });
+});
+
 // All slice routes require authentication
 router.use(authenticateToken);
 
@@ -36,16 +46,6 @@ router.use((req, res, next) => {
 // Slice CRUD operations
 router.post('/', csrfProtection(), validate(createSliceSchema), createSlice);
 router.get('/', validateQuery(sliceQuerySchema), getSlices);
-
-// Test endpoint to verify deployment
-router.get('/test-debug', (req, res) => {
-  console.log('[DEBUG] Test endpoint called!');
-  res.json({ 
-    success: true, 
-    message: 'Debug test endpoint working', 
-    timestamp: new Date().toISOString() 
-  });
-});
 
 // Specific routes must come before parameterized routes
 router.get('/contents', (req, res, next) => {
