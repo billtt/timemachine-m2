@@ -1,4 +1,5 @@
 import { ENCRYPTION_MESSAGES } from '../../../shared/constants';
+import apiService from './api';
 
 export class EncryptionService {
   private static readonly STORAGE_KEY = 'timemachine_encryption_key';
@@ -61,9 +62,6 @@ export class EncryptionService {
   // Validate that the current local key state matches server content state
   async validateLocalKey(): Promise<{ isValid: boolean; error?: string }> {
     try {
-      // Import apiService dynamically to avoid circular dependency
-      const { default: apiService } = await import('./api');
-      
       // Fetch only content fields for efficiency
       const data = await apiService.getSliceContents({ limit: 5 });
       const contents = data.contents || [];
