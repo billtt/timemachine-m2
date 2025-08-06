@@ -25,7 +25,7 @@ interface SliceStore {
   slices: SliceWithStatus[];
   setSlices: (slices: Slice[]) => void;
   setDecryptedSlices: (slices: Slice[]) => void;
-  addSliceOptimistically: (data: SliceFormData) => Promise<string>;
+  addSlice: (data: SliceFormData) => Promise<any>;
   updateSliceOptimistically: (id: string, data: Partial<SliceFormData>) => Promise<void>;
   deleteSliceOptimistically: (id: string) => Promise<void>;
   markSliceAsCompleted: (tempId: string, realSlice?: Slice) => void;
@@ -63,24 +63,7 @@ export const useSliceStore = create<SliceStore>((set, get) => ({
     set({ slices: slices.map(slice => ({ ...slice, pending: false })) });
   },
 
-  addSliceOptimistically: async (data: SliceFormData) => {
-    const currentState = get();
-    
-    // Check for duplicate slices to prevent network issues from creating duplicates
-    const isDuplicate = currentState.slices.some(slice => {
-      const timeDiff = Math.abs(new Date(slice.time).getTime() - data.time.getTime());
-      return (
-        slice.content === data.content &&
-        slice.type === data.type &&
-        timeDiff < 5000 && // Within 5 seconds
-        (slice.pending || slice.tempId) // Either pending or has tempId
-      );
-    });
-    
-    if (isDuplicate) {
-      return 'duplicate';
-    }
-
+  addSlice: async (data: SliceFormData) => {
     // Ensure encryption service is initialized
     await encryptionService.initialize();
     
@@ -88,29 +71,11 @@ export const useSliceStore = create<SliceStore>((set, get) => ({
     const encryptedContent = await encryptionService.encrypt(data.content);
     const searchTokens = await encryptionService.generateSearchTokens(data.content);
     
-    const tempId = uuidv4();
-    const optimisticSlice: SliceWithStatus = {
-      id: tempId,
-      content: data.content, // Store decrypted content for immediate readable UI
-      type: data.type,
-      time: data.time,
-      user: 'temp', // Will be replaced when synced
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      pending: true,
-      tempId
-    };
-
-    // Add to UI immediately
-    set(state => ({
-      slices: [optimisticSlice, ...state.slices]
-    }));
-
     try {
       const { isOnline } = useUIStore.getState();
       
       if (isOnline) {
-        // Queue the operation for immediate processing
+        // Add operation to queue
         await useOfflineStore.getState().addPendingOperation({
           type: 'create',
           operation: 'slice',
@@ -119,11 +84,39 @@ export const useSliceStore = create<SliceStore>((set, get) => ({
             type: data.type,
             time: data.time.toISOString(),
             searchTokens // Include search tokens
-          },
-          tempId
+          }
         });
+
+        // Process operations immediately (which will handle our operation)
+        await useOfflineStore.getState().processOperations();
+
+        // Immediately refetch slices instead of just invalidating
+        if (queryClient) {
+          await queryClient.refetchQueries({ queryKey: ['slices'] });
+          await queryClient.refetchQueries({ queryKey: ['decrypted-slices'] });
+        }
+
+        return 'success';
       } else {
-        // Just queue it for later
+        // Queue for later and add optimistically for offline
+        const tempId = uuidv4();
+        const optimisticSlice: SliceWithStatus = {
+          id: tempId,
+          content: data.content, // Store decrypted content for immediate readable UI
+          type: data.type,
+          time: data.time,
+          user: 'temp', // Will be replaced when synced
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          pending: true,
+          tempId
+        };
+
+        // Add to UI immediately for offline mode
+        set(state => ({
+          slices: [optimisticSlice, ...state.slices]
+        }));
+
         await useOfflineStore.getState().addPendingOperation({
           type: 'create',
           operation: 'slice',
@@ -137,15 +130,9 @@ export const useSliceStore = create<SliceStore>((set, get) => ({
         });
         
         toast.success('Slice queued for sync');
+        return tempId;
       }
-
-      return tempId;
     } catch (error) {
-      // Remove the optimistic slice on error
-      set(state => ({
-        slices: state.slices.filter(slice => slice.tempId !== tempId)
-      }));
-      
       toast.error('Failed to add slice');
       throw error;
     }
@@ -256,6 +243,7 @@ export const useSliceStore = create<SliceStore>((set, get) => ({
   },
 
   markSliceAsCompleted: async (tempId: string, realSlice?: Slice) => {
+    // This is only used for offline mode now, so keep it simple
     let decryptedRealSlice = realSlice;
     
     // If we have a real slice from server, decrypt its content for display

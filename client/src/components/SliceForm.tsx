@@ -15,6 +15,7 @@ const SliceForm: React.FC<SliceFormProps> = ({
 }) => {
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const lastSubmissionRef = useRef<number>(0);
+  const [isValidating, setIsValidating] = useState(false);
   const { register, handleSubmit, formState: { errors }, setValue } = useForm<SliceFormData>({
     defaultValues: {
       content: slice?.content || '',
@@ -56,21 +57,28 @@ const SliceForm: React.FC<SliceFormProps> = ({
     }
     lastSubmissionRef.current = now;
     
-    // Always validate encryption key state before submitting
-    const validation = await encryptionService.validateLocalKey();
-    if (!validation.isValid) {
-      toast.error(`Cannot save slice: ${validation.error}\n\nPlease check your encryption password in Settings.`);
-      return;
+    // Set validating state
+    setIsValidating(true);
+    
+    try {
+      // Always validate encryption key state before submitting
+      const validation = await encryptionService.validateLocalKey();
+      if (!validation.isValid) {
+        toast.error(`Cannot save slice: ${validation.error}\n\nPlease check your encryption password in Settings.`);
+        return;
+      }
+      
+      // Combine date and time
+      const combinedDateTime = new Date(`${selectedDate}T${selectedTime}`);
+      
+      onSubmit({
+        ...data,
+        type: selectedType,
+        time: combinedDateTime
+      });
+    } finally {
+      setIsValidating(false);
     }
-    
-    // Combine date and time
-    const combinedDateTime = new Date(`${selectedDate}T${selectedTime}`);
-    
-    onSubmit({
-      ...data,
-      type: selectedType,
-      time: combinedDateTime
-    });
   };
 
 
@@ -142,8 +150,8 @@ const SliceForm: React.FC<SliceFormProps> = ({
         </Button>
         <Button
           type="submit"
-          isLoading={isLoading}
-          disabled={isLoading}
+          isLoading={isLoading || isValidating}
+          disabled={isLoading || isValidating}
         >
           {slice ? 'Update' : 'Create'} Slice
         </Button>

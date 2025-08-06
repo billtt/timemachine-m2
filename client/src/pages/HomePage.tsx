@@ -30,7 +30,7 @@ const HomePage: React.FC = () => {
   const { 
     slices, 
     setDecryptedSlices, 
-    addSliceOptimistically, 
+    addSlice, 
     updateSliceOptimistically, 
     deleteSliceOptimistically 
   } = useSliceStore();
@@ -127,15 +127,13 @@ const HomePage: React.FC = () => {
     loadPendingOperations();
   }, [loadPendingOperations]);
 
-  // Create slice mutation (now using optimistic updates)
+  // Create slice mutation (wait for server completion)
   const createSliceMutation = useMutation({
     mutationFn: async (data: SliceFormData) => {
-      return await addSliceOptimistically(data);
+      return await addSlice(data);
     },
-    onSuccess: (result) => {
-      if (result !== 'duplicate') {
-        setShowAddModal(false);
-      }
+    onSuccess: () => {
+      setShowAddModal(false);
     },
     onError: (error: any) => {
       console.error('Failed to create slice:', error);
@@ -366,10 +364,10 @@ const HomePage: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-4 px-4 pb-4 mt-4">
-            {displaySlices.map((slice, index) => {
+            {displaySlices.map((slice) => {
               const sliceWithStatus = slice as any;
-              // Use tempId for pending operations, otherwise use slice.id + index for uniqueness
-              const key = sliceWithStatus.tempId || `${slice.id}-${index}`;
+              // Use tempId for stable keys if available, otherwise use slice.id
+              const key = sliceWithStatus.tempId || slice.id;
               
               return (
                 <SliceItem
@@ -425,10 +423,10 @@ const HomePage: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {displaySlices.map((slice, index) => {
+                {displaySlices.map((slice) => {
                   const sliceWithStatus = slice as any;
-                  // Use tempId for pending operations, otherwise use slice.id + index for uniqueness
-                  const key = sliceWithStatus.tempId || `${slice.id}-${index}`;
+                  // Use tempId for stable keys if available, otherwise use slice.id
+                  const key = sliceWithStatus.tempId || slice.id;
                   
                   return (
                     <SliceItem
