@@ -9,6 +9,7 @@ import { EncryptionSettings } from '../components/EncryptionSettings';
 import ErrorBoundary from '../components/ErrorBoundary';
 import apiService from '../services/api';
 import toast from 'react-hot-toast';
+import { getVersionInfo } from '../utils/version';
 
 const SettingsPage: React.FC = () => {
   const { user, logout } = useAuthStore();
@@ -432,7 +433,13 @@ const SettingsPage: React.FC = () => {
         
         <div className="space-y-2">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            TimeMachine v2.0.0
+            TimeMachine v{getVersionInfo().version}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-500">
+            Built: {getVersionInfo().buildDate}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-500">
+            Git SHA: {getVersionInfo().gitSha}
           </p>
           <p className="text-sm text-gray-600 dark:text-gray-400">
             A modern personal life tracking application

@@ -11,3 +11,8 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+declare const __BUILD_INFO__: {
+  gitSha: string;
+  buildTime: string;
+};

@@ -2,12 +2,28 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import fs from 'fs';
+import { execSync } from 'child_process';
+
+// Get build-time version information
+const getBuildInfo = () => {
+  try {
+    const gitSha = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+    const buildTime = new Date().toISOString();
+    return { gitSha, buildTime };
+  } catch (error) {
+    console.warn('Could not get git info, using fallback version');
+    return { gitSha: 'unknown', buildTime: new Date().toISOString() };
+  }
+};
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react()
   ],
+  define: {
+    __BUILD_INFO__: JSON.stringify(getBuildInfo()),
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
