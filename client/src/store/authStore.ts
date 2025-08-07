@@ -4,11 +4,12 @@ import { AuthState, LoginRequest, RegisterRequest } from '../types';
 import { STORAGE_KEYS } from '../types';
 import apiService from '../services/api';
 import toast from 'react-hot-toast';
+import { clearAllUserData } from '../utils/clearUserData';
 
 interface AuthStore extends AuthState {
   login: (credentials: LoginRequest) => Promise<void>;
   register: (userData: RegisterRequest) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   clearError: () => void;
   setLoading: (loading: boolean) => void;
@@ -77,8 +78,11 @@ export const useAuthStore = create<AuthStore>()(
         }
       },
 
-      logout: () => {
+      logout: async () => {
+        // Clear auth token first
         localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+        
+        // Clear auth state
         set({
           isAuthenticated: false,
           user: null,
@@ -86,6 +90,10 @@ export const useAuthStore = create<AuthStore>()(
           isLoading: false,
           error: null
         });
+        
+        // Clear all user-specific data for security
+        await clearAllUserData();
+        
         toast.success('Logged out successfully');
       },
 

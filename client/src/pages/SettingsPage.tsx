@@ -10,11 +10,13 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import apiService from '../services/api';
 import toast from 'react-hot-toast';
 import { getVersionInfo } from '../utils/version';
+import { useQueryClient } from '@tanstack/react-query';
 
 const SettingsPage: React.FC = () => {
   const { user, logout } = useAuthStore();
   const { theme, privacyMode, toggleTheme, togglePrivacyMode } = useUIStore();
   const { pendingSlices, syncPendingSlices } = useOfflineStore();
+  const queryClient = useQueryClient();
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
@@ -85,9 +87,11 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (window.confirm('Are you sure you want to logout?')) {
-      logout();
+      // Clear React Query cache before logout
+      queryClient.clear();
+      await logout();
     }
   };
 

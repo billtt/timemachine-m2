@@ -42,6 +42,12 @@ export class EncryptionService {
     return this.encryptionKey;
   }
 
+  // Clear encryption key (for logout)
+  clearStoredKey(): void {
+    this.encryptionKey = null;
+    localStorage.removeItem(EncryptionService.STORAGE_KEY);
+  }
+
   // Ensure service is initialized
   private ensureInitialized(): void {
     if (this.encryptionKey === null) {
