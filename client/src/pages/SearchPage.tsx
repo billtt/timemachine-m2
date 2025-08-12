@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Search, Loader2, RefreshCw } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useUIStore } from '../store/uiStore';
+import { useSearchStore } from '../store/searchStore';
 import { SearchFormData, Slice } from '../types';
 import apiService from '../services/api';
 import offlineStorage from '../services/offline';
@@ -14,21 +16,42 @@ import Loading from '../components/Loading';
 import { PAGINATION } from '../../../shared/constants';
 
 const SearchPage: React.FC = () => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [useRegex, setUseRegex] = useState(false);
+  const navigate = useNavigate();
+  const { searchQuery, useRegex, scrollPosition, setSearchQuery, setUseRegex, setScrollPosition, setIsFromSearch } = useSearchStore();
   const [showSingleCharPrompt, setShowSingleCharPrompt] = useState(false);
   const [isEncryptionEnabled, setIsEncryptionEnabled] = useState(false);
-  const { privacyMode, isOnline } = useUIStore();
+  const { privacyMode, isOnline, setNavigationDate } = useUIStore();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<SearchFormData>();
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<SearchFormData>({
+    defaultValues: {
+      query: searchQuery,
+      useRegex: useRegex
+    }
+  });
 
-  // Auto-focus search input when page loads
+  // Auto-focus search input when page loads and set initial values
   useEffect(() => {
     if (searchInputRef.current) {
       searchInputRef.current.focus();
     }
-  }, []);
+    // Set form values from store
+    if (searchQuery) {
+      setValue('query', searchQuery);
+      setValue('useRegex', useRegex);
+    }
+  }, [searchQuery, useRegex, setValue]);
+
+  // Restore scroll position when returning to the page
+  useEffect(() => {
+    if (scrollPosition > 0) {
+      // Small delay to ensure content is rendered
+      const timeoutId = setTimeout(() => {
+        window.scrollTo(0, scrollPosition);
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, []); // Only run once on mount
 
   // Check encryption status
   useEffect(() => {
@@ -179,8 +202,8 @@ const SearchPage: React.FC = () => {
   };
 
   const handleClearSearch = () => {
-    setSearchQuery('');
-    setUseRegex(false);
+    const { clearSearch } = useSearchStore.getState();
+    clearSearch();
     setShowSingleCharPrompt(false);
     reset();
   };
@@ -341,6 +364,13 @@ const SearchPage: React.FC = () => {
                     onEdit={() => {}}
                     onDelete={() => {}}
                     privacyMode={privacyMode}
+                    onJumpToDate={(date) => {
+                      // Save current scroll position before navigating
+                      setScrollPosition(window.scrollY);
+                      setNavigationDate(date);
+                      setIsFromSearch(true);
+                      navigate('/');
+                    }}
                   />
                 </div>
               ))}

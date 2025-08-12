@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Calendar, RefreshCw, ChevronLeft, ChevronRight, Home } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Calendar, RefreshCw, ChevronLeft, ChevronRight, Home, ArrowLeft } from 'lucide-react';
 import { format, startOfDay, endOfDay, addDays, subDays } from 'date-fns';
 import { useUIStore } from '../store/uiStore';
+import { useSearchStore } from '../store/searchStore';
 import { useOfflineStore } from '../store/offlineStore';
 import { useSliceStore } from '../store/sliceStore';
 import { Slice, SliceFormData } from '../types';
@@ -20,12 +22,20 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import { PAGINATION } from '../../../shared/constants';
 
 const HomePage: React.FC = () => {
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const navigate = useNavigate();
+  const { privacyMode, isOnline, navigationDate, setNavigationDate } = useUIStore();
+  const { isFromSearch, setIsFromSearch } = useSearchStore();
+  const [selectedDate, setSelectedDate] = useState(() => {
+    // Use navigation date if available, otherwise use today
+    if (navigationDate) {
+      return new Date(navigationDate);
+    }
+    return new Date();
+  });
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingSlice, setEditingSlice] = useState<Slice | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [encryptionEnabled, setEncryptionEnabled] = useState(false);
-  const { privacyMode, isOnline } = useUIStore();
   const { syncPendingSlices, loadPendingOperations, processOperations } = useOfflineStore();
   const { 
     slices, 
@@ -35,6 +45,14 @@ const HomePage: React.FC = () => {
     deleteSliceOptimistically 
   } = useSliceStore();
   const queryClient = useQueryClient();
+
+  // Clear navigation date after using it
+  useEffect(() => {
+    if (navigationDate) {
+      // Clear it after component mounts to prevent using it again
+      setNavigationDate(null);
+    }
+  }, [navigationDate, setNavigationDate]);
 
   // Track encryption status changes
   useEffect(() => {
@@ -251,6 +269,11 @@ const HomePage: React.FC = () => {
 
   const goToToday = () => {
     setSelectedDate(new Date());
+    setIsFromSearch(false); // Clear the return button when clicking Today
+  };
+
+  const goBackToSearch = () => {
+    navigate('/search');
   };
 
   // Mobile detection
@@ -300,6 +323,16 @@ const HomePage: React.FC = () => {
               title="Go to Today"
             >
               <Home className="w-4 h-4" />
+            </Button>
+          )}
+          {isFromSearch && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={goBackToSearch}
+              title="Back to Search Results"
+            >
+              <ArrowLeft className="w-4 h-4" />
             </Button>
           )}
         </div>

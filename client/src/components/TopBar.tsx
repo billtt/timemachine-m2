@@ -10,13 +10,21 @@ import {
   EyeOff
 } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
+import { useSearchStore } from '../store/searchStore';
 
 const TopBar: React.FC = () => {
   const location = useLocation();
   const { theme, privacyMode, toggleTheme, togglePrivacyMode } = useUIStore();
+  const { clearSearch, setIsFromSearch } = useSearchStore();
 
   const isActive = (path: string) => {
     return location.pathname === path;
+  };
+
+  const handleSearchClick = () => {
+    // Clear search state when clicking the search icon from top bar
+    clearSearch();
+    setIsFromSearch(false);
   };
 
   return (
@@ -47,6 +55,7 @@ const TopBar: React.FC = () => {
 
             <Link
               to="/search"
+              onClick={handleSearchClick}
               className={`p-2 rounded-lg transition-colors ${
                 isActive('/search') 
                   ? 'bg-primary-100 text-primary-600 dark:bg-primary-900 dark:text-primary-400' 

@@ -13,6 +13,8 @@ interface UIStore extends UIState {
   setOnlineStatus: (online: boolean) => void;
   setInstallPrompt: (prompt: BeforeInstallPromptEvent | null) => void;
   showInstallPrompt: () => Promise<void>;
+  navigationDate: Date | null;
+  setNavigationDate: (date: Date | null) => void;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -23,6 +25,7 @@ export const useUIStore = create<UIStore>()(
       privacyMode: false,
       isOnline: navigator.onLine,
       installPrompt: null,
+      navigationDate: null,
 
       toggleTheme: () => {
         const newTheme = get().theme === 'light' ? 'dark' : 'light';
@@ -88,7 +91,9 @@ export const useUIStore = create<UIStore>()(
             console.error('Error showing install prompt:', error);
           }
         }
-      }
+      },
+
+      setNavigationDate: (date: Date | null) => set({ navigationDate: date })
     }),
     {
       name: 'ui-store',

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Edit2, Trash2, Clock, Copy } from 'lucide-react';
+import { Edit2, Trash2, Clock, Copy, CalendarDays } from 'lucide-react';
 import { clsx } from 'clsx';
 import { SliceItemProps } from '../types';
 import PendingIndicator from './PendingIndicator';
@@ -10,7 +10,8 @@ const SliceItem: React.FC<SliceItemProps> = ({
   slice,
   onEdit,
   onDelete,
-  privacyMode = false
+  privacyMode = false,
+  onJumpToDate
 }) => {
   const sliceWithStatus = slice as any; // Type assertion for pending/error properties
   const [isExpanded, setIsExpanded] = useState(false);
@@ -78,6 +79,15 @@ const SliceItem: React.FC<SliceItemProps> = ({
             
             {/* Actions */}
             <div className="flex items-center space-x-1">
+              {onJumpToDate && (
+                <button
+                  onClick={() => onJumpToDate(new Date(slice.time))}
+                  className="p-1.5 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-full transition-colors dark:hover:bg-purple-900/20"
+                  title="Jump to date"
+                >
+                  <CalendarDays className="w-3 h-3" />
+                </button>
+              )}
               <button
                 onClick={handleCopyContent}
                 className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-full transition-colors dark:hover:bg-green-900/20"

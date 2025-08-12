@@ -171,6 +171,7 @@ export interface SliceItemProps {
   onEdit: (slice: Slice) => void;
   onDelete: (id: string) => void;
   privacyMode?: boolean;
+  onJumpToDate?: (date: Date) => void;
 }
 
 export interface SliceFormProps {
