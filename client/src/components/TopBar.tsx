@@ -33,6 +33,11 @@ const TopBar: React.FC = () => {
     navigate('/search');
   };
 
+  const handleHomeClick = () => {
+    // Clear search state when clicking home button
+    setIsFromSearch(false);
+  };
+
   return (
     <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
       <div className="px-4 lg:px-8">
@@ -58,6 +63,7 @@ const TopBar: React.FC = () => {
             )}
             <Link
               to="/"
+              onClick={handleHomeClick}
               className={`p-2 rounded-lg transition-colors ${
                 isActive('/') 
                   ? 'bg-primary-100 text-primary-600 dark:bg-primary-900 dark:text-primary-400' 
