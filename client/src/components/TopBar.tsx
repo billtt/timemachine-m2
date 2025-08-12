@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Home, 
   Search, 
@@ -7,15 +7,17 @@ import {
   Sun, 
   Moon, 
   Eye, 
-  EyeOff
+  EyeOff,
+  ArrowLeft
 } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 import { useSearchStore } from '../store/searchStore';
 
 const TopBar: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { theme, privacyMode, toggleTheme, togglePrivacyMode } = useUIStore();
-  const { clearSearch, setIsFromSearch } = useSearchStore();
+  const { clearSearch, setIsFromSearch, isFromSearch } = useSearchStore();
 
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -25,6 +27,10 @@ const TopBar: React.FC = () => {
     // Clear search state when clicking the search icon from top bar
     clearSearch();
     setIsFromSearch(false);
+  };
+
+  const handleBackToSearch = () => {
+    navigate('/search');
   };
 
   return (
@@ -41,6 +47,15 @@ const TopBar: React.FC = () => {
 
           {/* Center: Navigation */}
           <div className="flex items-center space-x-1 sm:space-x-2">
+            {isFromSearch && location.pathname === '/' && (
+              <button
+                onClick={handleBackToSearch}
+                className="p-2 rounded-lg bg-orange-100 text-orange-600 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:hover:bg-orange-900/50 transition-colors animate-pulse-slow"
+                title="Back to Search Results"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+            )}
             <Link
               to="/"
               className={`p-2 rounded-lg transition-colors ${

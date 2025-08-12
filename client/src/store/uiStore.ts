@@ -15,6 +15,8 @@ interface UIStore extends UIState {
   showInstallPrompt: () => Promise<void>;
   navigationDate: Date | null;
   setNavigationDate: (date: Date | null) => void;
+  highlightedSliceId: string | null;
+  setHighlightedSliceId: (id: string | null) => void;
 }
 
 export const useUIStore = create<UIStore>()(
@@ -26,6 +28,7 @@ export const useUIStore = create<UIStore>()(
       isOnline: navigator.onLine,
       installPrompt: null,
       navigationDate: null,
+      highlightedSliceId: null,
 
       toggleTheme: () => {
         const newTheme = get().theme === 'light' ? 'dark' : 'light';
@@ -93,7 +96,9 @@ export const useUIStore = create<UIStore>()(
         }
       },
 
-      setNavigationDate: (date: Date | null) => set({ navigationDate: date })
+      setNavigationDate: (date: Date | null) => set({ navigationDate: date }),
+      
+      setHighlightedSliceId: (id: string | null) => set({ highlightedSliceId: id })
     }),
     {
       name: 'ui-store',

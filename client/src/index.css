@@ -128,3 +128,12 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+
+/* Highlight animation for slices */
+.slice-content {
+  transition: background-color 0.25s ease-in-out;
+}
+
+.slice-content.slice-highlighted {
+  background-color: rgba(251, 146, 60, 0.2) !important; /* Orange highlight */
+}

@@ -20,7 +20,7 @@ const SearchPage: React.FC = () => {
   const { searchQuery, useRegex, scrollPosition, setSearchQuery, setUseRegex, setScrollPosition, setIsFromSearch } = useSearchStore();
   const [showSingleCharPrompt, setShowSingleCharPrompt] = useState(false);
   const [isEncryptionEnabled, setIsEncryptionEnabled] = useState(false);
-  const { privacyMode, isOnline, setNavigationDate } = useUIStore();
+  const { privacyMode, isOnline, setNavigationDate, setHighlightedSliceId } = useUIStore();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<SearchFormData>({
@@ -364,10 +364,11 @@ const SearchPage: React.FC = () => {
                     onEdit={() => {}}
                     onDelete={() => {}}
                     privacyMode={privacyMode}
-                    onJumpToDate={(date) => {
+                    onJumpToDate={(date, sliceId) => {
                       // Save current scroll position before navigating
                       setScrollPosition(window.scrollY);
                       setNavigationDate(date);
+                      setHighlightedSliceId(sliceId);
                       setIsFromSearch(true);
                       navigate('/');
                     }}

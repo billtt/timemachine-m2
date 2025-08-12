@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
-import { Plus, Calendar, RefreshCw, ChevronLeft, ChevronRight, Home, ArrowLeft } from 'lucide-react';
+import { Plus, Calendar, RefreshCw, ChevronLeft, ChevronRight, Home } from 'lucide-react';
 import { format, startOfDay, endOfDay, addDays, subDays } from 'date-fns';
 import { useUIStore } from '../store/uiStore';
 import { useSearchStore } from '../store/searchStore';
@@ -22,9 +21,8 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import { PAGINATION } from '../../../shared/constants';
 
 const HomePage: React.FC = () => {
-  const navigate = useNavigate();
-  const { privacyMode, isOnline, navigationDate, setNavigationDate } = useUIStore();
-  const { isFromSearch, setIsFromSearch } = useSearchStore();
+  const { privacyMode, isOnline, navigationDate, setNavigationDate, highlightedSliceId, setHighlightedSliceId } = useUIStore();
+  const { setIsFromSearch } = useSearchStore();
   const [selectedDate, setSelectedDate] = useState(() => {
     // Use navigation date if available, otherwise use today
     if (navigationDate) {
@@ -53,6 +51,30 @@ const HomePage: React.FC = () => {
       setNavigationDate(null);
     }
   }, [navigationDate, setNavigationDate]);
+
+  // Scroll to and highlight the selected slice
+  useEffect(() => {
+    if (highlightedSliceId && slices.length > 0) {
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        const element = document.getElementById(`slice-${highlightedSliceId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Find the child div with the SliceItem content and add highlight
+          const sliceContent = element.querySelector('.slice-content');
+          if (sliceContent) {
+            sliceContent.classList.add('slice-highlighted');
+            
+            // Remove highlight after 0.5 seconds
+            setTimeout(() => {
+              sliceContent.classList.remove('slice-highlighted');
+              setHighlightedSliceId(null);
+            }, 500);
+          }
+        }
+      }, 300);
+    }
+  }, [highlightedSliceId, slices, setHighlightedSliceId]);
 
   // Track encryption status changes
   useEffect(() => {
@@ -270,10 +292,7 @@ const HomePage: React.FC = () => {
   const goToToday = () => {
     setSelectedDate(new Date());
     setIsFromSearch(false); // Clear the return button when clicking Today
-  };
-
-  const goBackToSearch = () => {
-    navigate('/search');
+    setHighlightedSliceId(null); // Clear any highlighting
   };
 
   // Mobile detection
@@ -323,16 +342,6 @@ const HomePage: React.FC = () => {
               title="Go to Today"
             >
               <Home className="w-4 h-4" />
-            </Button>
-          )}
-          {isFromSearch && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={goBackToSearch}
-              title="Back to Search Results"
-            >
-              <ArrowLeft className="w-4 h-4" />
             </Button>
           )}
         </div>
@@ -415,15 +424,17 @@ const HomePage: React.FC = () => {
               const sliceWithStatus = slice as any;
               // Use tempId for stable keys if available, otherwise use slice.id
               const key = sliceWithStatus.tempId || slice.id;
+              const isHighlighted = highlightedSliceId === slice.id;
               
               return (
-                <SliceItem
-                  key={key}
-                  slice={slice}
-                  onEdit={handleEditSlice}
-                  onDelete={handleDeleteSlice}
-                  privacyMode={privacyMode}
-                />
+                <div key={key} id={`slice-${slice.id}`} className={isHighlighted ? 'highlight-target' : ''}>
+                  <SliceItem
+                    slice={slice}
+                    onEdit={handleEditSlice}
+                    onDelete={handleDeleteSlice}
+                    privacyMode={privacyMode}
+                  />
+                </div>
               );
             })}
           </div>
@@ -474,15 +485,17 @@ const HomePage: React.FC = () => {
                   const sliceWithStatus = slice as any;
                   // Use tempId for stable keys if available, otherwise use slice.id
                   const key = sliceWithStatus.tempId || slice.id;
+                  const isHighlighted = highlightedSliceId === slice.id;
                   
                   return (
-                    <SliceItem
-                      key={key}
-                      slice={slice}
-                      onEdit={handleEditSlice}
-                      onDelete={handleDeleteSlice}
-                      privacyMode={privacyMode}
-                    />
+                    <div key={key} id={`slice-${slice.id}`} className={isHighlighted ? 'highlight-target' : ''}>
+                      <SliceItem
+                        slice={slice}
+                        onEdit={handleEditSlice}
+                        onDelete={handleDeleteSlice}
+                        privacyMode={privacyMode}
+                      />
+                    </div>
                   );
                 })}
               </div>

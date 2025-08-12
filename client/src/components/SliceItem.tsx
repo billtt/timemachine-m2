@@ -58,7 +58,7 @@ const SliceItem: React.FC<SliceItemProps> = ({
 
   return (
     <div className={clsx(
-      'p-4 rounded-lg border-l-4 transition-all duration-200',
+      'slice-content p-4 rounded-lg border-l-4 transition-all duration-200',
       'hover:shadow-md dark:hover:shadow-gray-900/20',
       'animate-slide-up',
       'border-gray-500 bg-gray-50 dark:bg-gray-900/20'
@@ -81,8 +81,8 @@ const SliceItem: React.FC<SliceItemProps> = ({
             <div className="flex items-center space-x-1">
               {onJumpToDate && (
                 <button
-                  onClick={() => onJumpToDate(new Date(slice.time))}
-                  className="p-1.5 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-full transition-colors dark:hover:bg-purple-900/20"
+                  onClick={() => onJumpToDate(new Date(slice.time), slice.id)}
+                  className="p-1.5 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-full transition-colors dark:hover:bg-orange-900/20"
                   title="Jump to date"
                 >
                   <CalendarDays className="w-3 h-3" />
