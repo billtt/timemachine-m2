@@ -7,13 +7,6 @@ import { v4 as uuidv4 } from 'uuid';
 import toast from 'react-hot-toast';
 import { encryptionService } from '../services/encryption';
 
-// Global query client reference for cache invalidation
-let queryClient: any = null;
-
-export const setQueryClient = (client: any) => {
-  queryClient = client;
-};
-
 interface SliceWithStatus extends Slice {
   pending?: boolean;
   tempId?: string | undefined;
@@ -90,12 +83,9 @@ export const useSliceStore = create<SliceStore>((set, get) => ({
         // Process operations immediately (which will handle our operation)
         await useOfflineStore.getState().processOperations();
 
-        // Immediately refetch slices instead of just invalidating
-        if (queryClient) {
-          await queryClient.refetchQueries({ queryKey: ['slices'] });
-          await queryClient.refetchQueries({ queryKey: ['decrypted-slices'] });
-        }
-
+        // Don't refetch here - let the HomePage handle cache updates for the specific date
+        // This avoids invalidating all cached dates
+        
         return 'success';
       } else {
         // Queue for later and add optimistically for offline
@@ -325,11 +315,8 @@ operationQueue.onOperationSuccess(async (_operationId, tempId, result) => {
       await markSliceAsCompleted(tempId);
     }
     
-    // Invalidate React Query cache for all slice queries
-    if (queryClient) {
-      queryClient.invalidateQueries({ queryKey: ['slices'] });
-      queryClient.invalidateQueries({ queryKey: ['decrypted-slices'] });
-    }
+    // Don't invalidate cache here - let components handle their own cache updates
+    // This prevents invalidating all dates when only one date changed
   }
 });
 

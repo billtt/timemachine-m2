@@ -185,8 +185,18 @@ const HomePage: React.FC = () => {
     mutationFn: async ({ id, data }: { id: string; data: SliceFormData }) => {
       return await updateSliceOptimistically(id, data);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setEditingSlice(null);
+      // Refetch current date's data after update
+      const currentDateStr = format(selectedDate, 'yyyy-MM-dd');
+      await queryClient.refetchQueries({ 
+        queryKey: ['slices', currentDateStr],
+        exact: true
+      });
+      await queryClient.refetchQueries({ 
+        queryKey: ['decrypted-slices', currentDateStr],
+        exact: true
+      });
     },
     onError: (error: any) => {
       console.error('Failed to update slice:', error);
@@ -198,8 +208,17 @@ const HomePage: React.FC = () => {
     mutationFn: async (id: string) => {
       return await deleteSliceOptimistically(id);
     },
-    onSuccess: () => {
-      // No need to do anything, optimistic update already handled it
+    onSuccess: async () => {
+      // Refetch current date's data after delete
+      const currentDateStr = format(selectedDate, 'yyyy-MM-dd');
+      await queryClient.refetchQueries({ 
+        queryKey: ['slices', currentDateStr],
+        exact: true
+      });
+      await queryClient.refetchQueries({ 
+        queryKey: ['decrypted-slices', currentDateStr],
+        exact: true
+      });
     },
     onError: (error: any) => {
       console.error('Failed to delete slice:', error);
@@ -213,19 +232,18 @@ const HomePage: React.FC = () => {
           // Navigate to the date of the created slice
           const sliceDate = new Date(data.time);
           const sliceDateStr = format(sliceDate, 'yyyy-MM-dd');
-          const currentDateStr = format(selectedDate, 'yyyy-MM-dd');
           
           setSelectedDate(sliceDate);
           
-          // If we're navigating to a different date, ensure that date's data is fetched
-          if (sliceDateStr !== currentDateStr) {
-            await queryClient.invalidateQueries({ 
-              queryKey: ['slices', sliceDateStr] 
-            });
-            await queryClient.invalidateQueries({ 
-              queryKey: ['decrypted-slices', sliceDateStr] 
-            });
-          }
+          // Refetch (not just invalidate) the specific date's data
+          await queryClient.refetchQueries({ 
+            queryKey: ['slices', sliceDateStr],
+            exact: true
+          });
+          await queryClient.refetchQueries({ 
+            queryKey: ['decrypted-slices', sliceDateStr],
+            exact: true  
+          });
           
           resolve();
         },

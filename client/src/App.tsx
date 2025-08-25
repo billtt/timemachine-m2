@@ -5,7 +5,6 @@ import { Toaster } from 'react-hot-toast';
 import { useAuthStore } from './store/authStore';
 import { useOfflineStore } from './store/offlineStore';
 import { useUIStore } from './store/uiStore';
-import { setQueryClient } from './store/sliceStore';
 import offlineStorage from './services/offline';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
@@ -28,9 +27,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-// Set the query client reference for cache invalidation
-setQueryClient(queryClient);
 
 // Protected Route component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
