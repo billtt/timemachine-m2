@@ -179,6 +179,7 @@ export interface SliceFormProps {
   onSubmit: (data: SliceFormData) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
+  initialDraft?: PendingSliceDraft | undefined;  // For restoring draft after session timeout
 }
 
 export interface ModalProps {
@@ -281,5 +282,14 @@ export const STORAGE_KEYS = {
   THEME: 'timemachine_theme',
   PRIVACY_MODE: 'timemachine_privacy_mode',
   LAST_SYNC: 'timemachine_last_sync',
-  OFFLINE_SLICES: 'timemachine_offline_slices'
+  OFFLINE_SLICES: 'timemachine_offline_slices',
+  PENDING_SLICE_DRAFT: 'timemachine_pending_slice_draft'
 } as const;
+
+// Pending slice draft type for session timeout recovery
+export interface PendingSliceDraft {
+  content: string;
+  date: string;  // yyyy-MM-dd format
+  time: string;  // HH:mm format
+  savedAt: number;  // timestamp for expiry check
+}

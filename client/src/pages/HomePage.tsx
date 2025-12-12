@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Calendar, RefreshCw, ChevronLeft, ChevronRight, Home } from 'lucide-react';
 import { format, startOfDay, endOfDay, addDays, subDays } from 'date-fns';
+import toast from 'react-hot-toast';
 import { useUIStore } from '../store/uiStore';
 import { useSearchStore } from '../store/searchStore';
 import { useOfflineStore } from '../store/offlineStore';
 import { useSliceStore } from '../store/sliceStore';
-import { Slice, SliceFormData } from '../types';
+import { Slice, SliceFormData, STORAGE_KEYS, PendingSliceDraft } from '../types';
 import apiService from '../services/api';
 import offlineStorage from '../services/offline';
 import { encryptionService } from '../services/encryption';
@@ -19,6 +20,9 @@ import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import PullToRefresh from '../components/PullToRefresh';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { PAGINATION } from '../../../shared/constants';
+
+// Draft expiry time (24 hours in ms) - should match SliceForm constant
+const DRAFT_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
 const HomePage: React.FC = () => {
   const { privacyMode, isOnline, navigationDate, setNavigationDate, highlightedSliceId, setHighlightedSliceId } = useUIStore();
@@ -34,6 +38,8 @@ const HomePage: React.FC = () => {
   const [editingSlice, setEditingSlice] = useState<Slice | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [encryptionEnabled, setEncryptionEnabled] = useState(false);
+  const [pendingDraft, setPendingDraft] = useState<PendingSliceDraft | undefined>(undefined);
+  const draftCheckedRef = useRef(false);  // Prevent duplicate draft checks in StrictMode
   const { syncPendingSlices, loadPendingOperations, processOperations } = useOfflineStore();
   const { 
     slices, 
@@ -167,6 +173,40 @@ const HomePage: React.FC = () => {
     loadPendingOperations();
   }, [loadPendingOperations]);
 
+  // Check for pending slice draft on mount (for session timeout recovery)
+  useEffect(() => {
+    // Prevent duplicate execution in React StrictMode
+    if (draftCheckedRef.current) return;
+    draftCheckedRef.current = true;
+
+    const checkPendingDraft = () => {
+      try {
+        const draftJson = localStorage.getItem(STORAGE_KEYS.PENDING_SLICE_DRAFT);
+        if (!draftJson) return;
+
+        const draft: PendingSliceDraft = JSON.parse(draftJson);
+
+        // Check if draft is expired (older than 24 hours)
+        const now = Date.now();
+        if (now - draft.savedAt > DRAFT_EXPIRY_MS) {
+          // Draft expired, remove it
+          localStorage.removeItem(STORAGE_KEYS.PENDING_SLICE_DRAFT);
+          return;
+        }
+
+        // Valid draft found - restore it
+        setPendingDraft(draft);
+        setShowAddModal(true);
+        toast.success('Your unsaved slice has been restored');
+      } catch (error) {
+        // Invalid draft data, clear it
+        localStorage.removeItem(STORAGE_KEYS.PENDING_SLICE_DRAFT);
+      }
+    };
+
+    checkPendingDraft();
+  }, []);
+
   // Create slice mutation (wait for server completion)
   const createSliceMutation = useMutation({
     mutationFn: async (data: SliceFormData) => {
@@ -174,11 +214,18 @@ const HomePage: React.FC = () => {
     },
     onSuccess: () => {
       setShowAddModal(false);
+      setPendingDraft(undefined);  // Clear draft state on success
     },
     onError: (error: any) => {
       console.error('Failed to create slice:', error);
     }
   });
+
+  // Handle closing the add modal
+  const handleCloseAddModal = () => {
+    setShowAddModal(false);
+    setPendingDraft(undefined);  // Clear draft state when modal is closed
+  };
 
   // Update slice mutation (now using optimistic updates)
   const updateSliceMutation = useMutation({
@@ -525,13 +572,14 @@ const HomePage: React.FC = () => {
       {/* Add Slice Modal */}
       <Modal
         isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        onClose={handleCloseAddModal}
         title="Add New Slice"
       >
         <SliceForm
           onSubmit={handleCreateSlice}
-          onCancel={() => setShowAddModal(false)}
+          onCancel={handleCloseAddModal}
           isLoading={createSliceMutation.isPending}
+          initialDraft={pendingDraft}
         />
       </Modal>
 

@@ -1,36 +1,115 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { format } from 'date-fns';
 import { Calendar, Clock, Type } from 'lucide-react';
-import { SliceFormProps, SliceFormData, SliceType } from '../types';
+import { SliceFormProps, SliceFormData, SliceType, STORAGE_KEYS, PendingSliceDraft } from '../types';
 import Button from './Button';
 import { encryptionService } from '../services/encryption';
 import toast from 'react-hot-toast';
+
+// Draft auto-save debounce delay (ms)
+const DRAFT_SAVE_DELAY = 500;
 
 const SliceForm: React.FC<SliceFormProps> = ({
   slice,
   onSubmit,
   onCancel,
-  isLoading = false
+  isLoading = false,
+  initialDraft
 }) => {
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const lastSubmissionRef = useRef<number>(0);
+  const draftSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isValidating, setIsValidating] = useState(false);
-  const { register, handleSubmit, formState: { errors }, setValue } = useForm<SliceFormData>({
+
+  // Determine initial values: prioritize slice (for edit), then initialDraft (for recovery), then defaults
+  const getInitialContent = () => {
+    if (slice?.content) return slice.content;
+    if (initialDraft?.content) return initialDraft.content;
+    return '';
+  };
+
+  const getInitialDate = () => {
+    if (slice?.time) return format(new Date(slice.time), 'yyyy-MM-dd');
+    if (initialDraft?.date) return initialDraft.date;
+    return format(new Date(), 'yyyy-MM-dd');
+  };
+
+  const getInitialTime = () => {
+    if (slice?.time) return format(new Date(slice.time), 'HH:mm');
+    if (initialDraft?.time) return initialDraft.time;
+    return format(new Date(), 'HH:mm');
+  };
+
+  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<SliceFormData>({
     defaultValues: {
-      content: slice?.content || '',
+      content: getInitialContent(),
       type: slice?.type || 'other',
       time: slice?.time || new Date()
     }
   });
 
   const selectedType: SliceType = 'other';
-  const [selectedDate, setSelectedDate] = useState(
-    slice?.time ? format(new Date(slice.time), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')
-  );
-  const [selectedTime, setSelectedTime] = useState(
-    slice?.time ? format(new Date(slice.time), 'HH:mm') : format(new Date(), 'HH:mm')
-  );
+  const [selectedDate, setSelectedDate] = useState(getInitialDate());
+  const [selectedTime, setSelectedTime] = useState(getInitialTime());
+
+  // Watch content for draft auto-save
+  const watchedContent = watch('content');
+
+  // Clear draft from localStorage
+  const clearDraft = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEYS.PENDING_SLICE_DRAFT);
+  }, []);
+
+  // Save draft to localStorage (only for new slices, not edits)
+  const saveDraft = useCallback(() => {
+    // Don't save draft when editing existing slice
+    if (slice) return;
+
+    const content = contentRef.current?.value || '';
+    // Only save if there's meaningful content
+    if (content.trim()) {
+      const draft: PendingSliceDraft = {
+        content,
+        date: selectedDate,
+        time: selectedTime,
+        savedAt: Date.now()
+      };
+      localStorage.setItem(STORAGE_KEYS.PENDING_SLICE_DRAFT, JSON.stringify(draft));
+    } else {
+      // Clear draft if content is empty
+      clearDraft();
+    }
+  }, [slice, selectedDate, selectedTime, clearDraft]);
+
+  // Debounced draft save on content change
+  useEffect(() => {
+    // Don't auto-save for edit mode
+    if (slice) return;
+
+    // Clear any existing timeout
+    if (draftSaveTimeoutRef.current) {
+      clearTimeout(draftSaveTimeoutRef.current);
+    }
+
+    // Set new timeout for draft save
+    draftSaveTimeoutRef.current = setTimeout(() => {
+      saveDraft();
+    }, DRAFT_SAVE_DELAY);
+
+    return () => {
+      if (draftSaveTimeoutRef.current) {
+        clearTimeout(draftSaveTimeoutRef.current);
+      }
+    };
+  }, [watchedContent, selectedDate, selectedTime, slice, saveDraft]);
+
+  // Also save draft when date/time changes
+  useEffect(() => {
+    if (!slice && contentRef.current?.value?.trim()) {
+      saveDraft();
+    }
+  }, [selectedDate, selectedTime, slice, saveDraft]);
 
   useEffect(() => {
     if (slice) {
@@ -56,10 +135,10 @@ const SliceForm: React.FC<SliceFormProps> = ({
       return;
     }
     lastSubmissionRef.current = now;
-    
+
     // Set validating state
     setIsValidating(true);
-    
+
     try {
       // Always validate encryption key state before submitting
       const validation = await encryptionService.validateLocalKey();
@@ -67,11 +146,15 @@ const SliceForm: React.FC<SliceFormProps> = ({
         toast.error(`Cannot save slice: ${validation.error}\n\nPlease check your encryption password in Settings.`);
         return;
       }
-      
+
       // Combine date and time
       const combinedDateTime = new Date(`${selectedDate}T${selectedTime}`);
-      
-      onSubmit({
+
+      // Clear draft before submitting (will be cleared from storage on success)
+      clearDraft();
+
+      // Await the submission to complete before finishing
+      await onSubmit({
         ...data,
         type: selectedType,
         time: combinedDateTime
@@ -79,6 +162,12 @@ const SliceForm: React.FC<SliceFormProps> = ({
     } finally {
       setIsValidating(false);
     }
+  };
+
+  // Handle cancel with draft cleanup
+  const handleCancel = () => {
+    clearDraft();
+    onCancel();
   };
 
 
@@ -143,7 +232,7 @@ const SliceForm: React.FC<SliceFormProps> = ({
         <Button
           type="button"
           variant="secondary"
-          onClick={onCancel}
+          onClick={handleCancel}
           disabled={isLoading}
         >
           Cancel
