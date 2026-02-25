@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Calendar, RefreshCw, ChevronLeft, ChevronRight, Home } from 'lucide-react';
 import { format, startOfDay, endOfDay, addDays, subDays } from 'date-fns';
@@ -7,7 +7,7 @@ import { useUIStore } from '../store/uiStore';
 import { useSearchStore } from '../store/searchStore';
 import { useOfflineStore } from '../store/offlineStore';
 import { useSliceStore } from '../store/sliceStore';
-import { Slice, SliceFormData, STORAGE_KEYS, PendingSliceDraft } from '../types';
+import { Slice, SliceFormData, STORAGE_KEYS, PendingSliceDraft, ReflectionStatus } from '../types';
 import apiService from '../services/api';
 import offlineStorage from '../services/offline';
 import { encryptionService } from '../services/encryption';
@@ -15,6 +15,7 @@ import SliceItem from '../components/SliceItem';
 import SliceForm from '../components/SliceForm';
 import Modal from '../components/Modal';
 import Button from '../components/Button';
+import ReflectionModal, { REFLECTION_EMOJI } from '../components/ReflectionModal';
 import Loading from '../components/Loading';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 import PullToRefresh from '../components/PullToRefresh';
@@ -36,6 +37,7 @@ const HomePage: React.FC = () => {
   });
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingSlice, setEditingSlice] = useState<Slice | null>(null);
+  const [showReflectionModal, setShowReflectionModal] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [encryptionEnabled, setEncryptionEnabled] = useState(false);
   const [pendingDraft, setPendingDraft] = useState<PendingSliceDraft | undefined>(undefined);
@@ -157,6 +159,25 @@ const HomePage: React.FC = () => {
       setDecryptedSlices(decryptedSlicesData.slices);
     }
   }, [decryptedSlicesData, setDecryptedSlices]);
+
+  // Fetch reflection status for the selected date (used to color the reflection button)
+  const { data: reflectionData, refetch: refetchReflection } = useQuery({
+    queryKey: ['reflection', format(selectedDate, 'yyyy-MM-dd')],
+    queryFn: () => apiService.getReflection(format(selectedDate, 'yyyy-MM-dd')),
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5
+  });
+
+  // Derive reflection status from raw server data without decrypting
+  // (empty answers are stored as "" regardless of encryption state)
+  const reflectionStatus: ReflectionStatus = useMemo(() => {
+    const reflection = reflectionData?.reflection;
+    if (!reflection || reflection.questions.length === 0) return 'empty';
+    const nonEmpty = reflection.questions.filter(q => q.answer.trim() !== '');
+    if (nonEmpty.length === 0) return 'empty';
+    if (nonEmpty.length === reflection.questions.length) return 'full';
+    return 'partial';
+  }, [reflectionData]);
 
   // Listen for slice store changes and invalidate decryption cache
   useEffect(() => {
@@ -424,6 +445,14 @@ const HomePage: React.FC = () => {
             </Button>
           )}
           <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setShowReflectionModal(true)}
+            title="Daily Reflection"
+          >
+            <span className="text-base leading-none">{REFLECTION_EMOJI[reflectionStatus]}</span>
+          </Button>
+          <Button
             size="sm"
             onClick={() => setShowAddModal(true)}
             title="Add Slice"
@@ -598,6 +627,16 @@ const HomePage: React.FC = () => {
           />
         )}
       </Modal>
+
+      {/* Daily Reflection Modal */}
+      <ReflectionModal
+        isOpen={showReflectionModal}
+        onClose={() => setShowReflectionModal(false)}
+        date={selectedDate}
+        onSaved={() => {
+          refetchReflection();
+        }}
+      />
     </div>
   );
 };

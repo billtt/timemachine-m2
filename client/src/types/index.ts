@@ -276,6 +276,30 @@ export interface ServiceWorkerUpdateEvent {
   skipWaiting: () => void;
 }
 
+// Reflection types
+export interface ReflectionQuestion {
+  id: string;
+  text: string;
+  order: number;
+  answer: string; // encrypted or plaintext, mirrors slice content storage
+}
+
+export interface Reflection {
+  id: string;
+  user: string;
+  date: string; // yyyy-MM-dd
+  questions: ReflectionQuestion[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface UpsertReflectionRequest {
+  date: string; // yyyy-MM-dd
+  questions: ReflectionQuestion[];
+}
+
+export type ReflectionStatus = 'empty' | 'partial' | 'full';
+
 // Local storage keys
 export const STORAGE_KEYS = {
   AUTH_TOKEN: 'timemachine_auth_token',

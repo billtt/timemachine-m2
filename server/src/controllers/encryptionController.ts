@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import crypto from 'crypto';
 import { Slice } from '../models/Slice';
+import { Reflection } from '../models/Reflection';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { SLICE_TYPES } from '../types/shared';
 import { ENCRYPTION_MESSAGES } from '../../../shared/constants';
@@ -266,14 +267,60 @@ export const rotateEncryptionKey = async (req: AuthenticatedRequest, res: Respon
       console.error(`Warning: Expected to update ${slices.length} slices, but updated ${updateResult.modifiedCount}`);
     }
 
-    console.log(`Key rotation completed successfully for ${processedCount} slices`);
-    
-    res.json({ 
-      success: true, 
+    // REFLECTION ROTATION: Re-encrypt all reflection answers with the new key.
+    // Reflection answers use the same AES-256-GCM scheme as slice content, so we
+    // reuse the same encrypt/decrypt helpers. Unlike slices, reflection answers can
+    // be a mix of plaintext (saved before encryption was enabled) and encrypted
+    // (saved after), so we check before decrypting rather than using strict mode.
+    const reflections = await Reflection.find({ user: username });
+    let reflectionsProcessed = 0;
+
+    for (const reflection of reflections) {
+      const updatedQuestions = [];
+
+      for (const q of reflection.questions) {
+        let answer = q.answer;
+
+        // Empty answers are always stored as "" regardless of encryption — leave them alone
+        if (!answer) {
+          updatedQuestions.push({ id: q.id, text: q.text, order: q.order, answer: '' });
+          continue;
+        }
+
+        // Decrypt with old key only if the answer actually looks encrypted.
+        // This handles mixed state: plaintext answers (saved before encryption was
+        // enabled) pass through unchanged; encrypted answers are properly decrypted.
+        if (oldKey && oldKey.trim() !== '') {
+          const looksEncrypted = /^[A-Za-z0-9+/]+=*$/.test(answer) && answer.length > 16;
+          if (looksEncrypted) {
+            // Use strict mode so a wrong key fails loudly rather than silently
+            // double-encrypting already-encrypted content.
+            answer = await decryptContentStrict(answer, oldKey, true);
+          }
+          // else: plaintext — leave as-is, will be encrypted below
+        }
+
+        // Encrypt with new key (if encryption is being enabled or rotated)
+        if (newKey && newKey.trim() !== '') {
+          answer = await encryptContent(answer, newKey);
+        }
+
+        updatedQuestions.push({ id: q.id, text: q.text, order: q.order, answer });
+      }
+
+      await Reflection.findByIdAndUpdate(reflection._id, { questions: updatedQuestions });
+      reflectionsProcessed++;
+    }
+
+    console.log(`Key rotation completed: ${processedCount} slices, ${reflectionsProcessed} reflections`);
+
+    res.json({
+      success: true,
       message: 'Encryption key updated successfully',
       data: {
         success: true,
-        slicesUpdated: processedCount 
+        slicesUpdated: processedCount,
+        reflectionsUpdated: reflectionsProcessed
       }
     });
   } catch (error) {

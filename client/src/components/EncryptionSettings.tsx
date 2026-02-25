@@ -148,9 +148,9 @@ export const EncryptionSettings: React.FC = () => {
       await encryptionService.setPassword(password);
 
       if (password) {
-        toast.success(`Encryption password updated. ${response.slicesUpdated} slices re-encrypted.`);
+        toast.success(`Encryption password updated. ${response.slicesUpdated} slices and ${response.reflectionsUpdated} reflections re-encrypted.`);
       } else {
-        toast.success(`Encryption disabled. ${response.slicesUpdated} slices decrypted.`);
+        toast.success(`Encryption disabled. ${response.slicesUpdated} slices and ${response.reflectionsUpdated} reflections decrypted.`);
       }
       
       setPassword('');
@@ -307,7 +307,7 @@ export const EncryptionSettings: React.FC = () => {
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                   {operationType === 'set-local'
                     ? 'Set your local encryption password to match the server content or start encrypting new content.'
-                    : 'Change the encryption password for all your existing slices. This will re-encrypt all content with the new password.'}
+                    : 'Change the encryption password for all your existing content (slices and reflections). This will re-encrypt everything with the new password.'}
                 </p>
               </div>
 
@@ -364,7 +364,7 @@ export const EncryptionSettings: React.FC = () => {
               {operationType === 'update-server' && (
                 <div className="flex items-start">
                   <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
-                  <p>Server updates will re-encrypt ALL your content and cannot be undone.</p>
+                  <p>Server updates will re-encrypt ALL your content (slices and reflections) and cannot be undone.</p>
                 </div>
               )}
             </div>
@@ -383,9 +383,9 @@ export const EncryptionSettings: React.FC = () => {
               </h3>
             </div>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {password 
-                ? `This will update ALL your slices on the server with the new encryption password. This action cannot be undone.`
-                : `This will decrypt ALL your slices on the server and disable encryption. This action cannot be undone.`
+              {password
+                ? `This will re-encrypt ALL your content (slices and reflections) on the server with the new password. This action cannot be undone.`
+                : `This will decrypt ALL your content (slices and reflections) on the server and disable encryption. This action cannot be undone.`
               }
             </p>
             <div className="flex space-x-3">
@@ -393,7 +393,7 @@ export const EncryptionSettings: React.FC = () => {
                 onClick={handleConfirmedUpdate}
                 variant="primary"
               >
-                {password ? 'Update All Slices' : 'Disable Encryption'}
+                {password ? 'Update All Content' : 'Disable Encryption'}
               </Button>
               <Button
                 onClick={() => setShowUpdateConfirm(false)}

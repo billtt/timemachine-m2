@@ -1,17 +1,19 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
-import { 
-  ApiResponse, 
-  LoginRequest, 
-  RegisterRequest, 
-  AuthResponse, 
-  Slice, 
-  CreateSliceRequest, 
-  UpdateSliceRequest, 
-  SliceFiltersParams, 
-  SearchParams, 
-  SliceStats, 
-  SyncRequest, 
-  SyncResponse 
+import {
+  ApiResponse,
+  LoginRequest,
+  RegisterRequest,
+  AuthResponse,
+  Slice,
+  CreateSliceRequest,
+  UpdateSliceRequest,
+  SliceFiltersParams,
+  SearchParams,
+  SliceStats,
+  SyncRequest,
+  SyncResponse,
+  Reflection,
+  UpsertReflectionRequest
 } from '../types';
 import { STORAGE_KEYS } from '../types';
 import toast from 'react-hot-toast';
@@ -210,8 +212,8 @@ class ApiService {
   }
 
   // Encryption endpoints
-  async rotateEncryptionKey(data: { oldKey: string; newKey: string }): Promise<{ success: boolean; slicesUpdated: number }> {
-    return this.request<{ success: boolean; slicesUpdated: number }>({
+  async rotateEncryptionKey(data: { oldKey: string; newKey: string }): Promise<{ success: boolean; slicesUpdated: number; reflectionsUpdated: number }> {
+    return this.request<{ success: boolean; slicesUpdated: number; reflectionsUpdated: number }>({
       method: 'POST',
       url: '/encryption/rotate-key',
       data,
@@ -303,6 +305,23 @@ class ApiService {
       method: 'GET',
       url: '/sync/since',
       params: { timestamp },
+    });
+  }
+
+  // Reflection endpoints
+  async getReflection(date: string): Promise<{ reflection: Reflection | null }> {
+    return this.request<{ reflection: Reflection | null }>({
+      method: 'GET',
+      url: '/reflections',
+      params: { date },
+    });
+  }
+
+  async upsertReflection(data: UpsertReflectionRequest): Promise<{ reflection: Reflection }> {
+    return this.request<{ reflection: Reflection }>({
+      method: 'POST',
+      url: '/reflections',
+      data,
     });
   }
 

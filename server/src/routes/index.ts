@@ -4,6 +4,7 @@ import sliceRoutes from './slices';
 import syncRoutes from './sync';
 import adminRoutes from './admin';
 import encryptionRoutes from './encryption';
+import reflectionRoutes from './reflections';
 import { generateCSRFToken, generateJWTCSRFToken } from '../middleware/csrf';
 
 const router = Router();
@@ -45,6 +46,7 @@ router.use('/auth', authRoutes);
 router.use('/slices', sliceRoutes);
 router.use('/sync', syncRoutes);
 router.use('/encryption', encryptionRoutes);
+router.use('/reflections', reflectionRoutes);
 
 // Admin routes (in production, add authentication middleware)
 router.use('/admin', adminRoutes);
