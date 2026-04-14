@@ -26,11 +26,15 @@ export const useAuthStore = create<AuthStore>()(
 
       login: async (credentials: LoginRequest) => {
         set({ isLoading: true, error: null });
-        
+
         try {
           const response = await apiService.login(credentials);
           const { user, token } = response;
-          
+
+          // Clear any leftover data from a previous session before storing
+          // the new auth token (e.g. stale encryption key, IndexedDB caches).
+          await clearAllUserData();
+
           // Store token in localStorage
           localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
           
@@ -57,7 +61,11 @@ export const useAuthStore = create<AuthStore>()(
         try {
           const response = await apiService.register(userData);
           const { user, token } = response;
-          
+
+          // Clear any leftover data from a previous session before storing
+          // the new auth token (e.g. stale encryption key, IndexedDB caches).
+          await clearAllUserData();
+
           // Store token in localStorage
           localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
           
