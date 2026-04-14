@@ -274,7 +274,7 @@ export const searchSlices = asyncHandler(async (req: AuthenticatedRequest, res: 
     try {
       const tokens = JSON.parse(searchTokens);
       if (Array.isArray(tokens) && tokens.length > 0) {
-        query.searchTokens = { $in: tokens };
+        query.searchTokens = { $all: tokens };
         
         // Execute encrypted search
         const skip = (page - 1) * limit;
