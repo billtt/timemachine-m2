@@ -31,9 +31,15 @@ export const useAuthStore = create<AuthStore>()(
           const response = await apiService.login(credentials);
           const { user, token } = response;
 
-          // Clear any leftover data from a previous session before storing
-          // the new auth token (e.g. stale encryption key, IndexedDB caches).
-          await clearAllUserData();
+          // Only wipe local per-user data (encryption key, caches) when the
+          // previous session belonged to a different account. Re-logins after
+          // a session timeout should preserve the user's local encryption
+          // password so they don't have to re-enter it each time.
+          const previousUserId = localStorage.getItem(STORAGE_KEYS.LAST_USER_ID);
+          if (previousUserId && previousUserId !== user.id) {
+            await clearAllUserData();
+          }
+          localStorage.setItem(STORAGE_KEYS.LAST_USER_ID, user.id);
 
           // Store token in localStorage
           localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
@@ -62,9 +68,10 @@ export const useAuthStore = create<AuthStore>()(
           const response = await apiService.register(userData);
           const { user, token } = response;
 
-          // Clear any leftover data from a previous session before storing
-          // the new auth token (e.g. stale encryption key, IndexedDB caches).
+          // A freshly registered account can never share state with a prior
+          // session, so always wipe local per-user data before setting up.
           await clearAllUserData();
+          localStorage.setItem(STORAGE_KEYS.LAST_USER_ID, user.id);
 
           // Store token in localStorage
           localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);

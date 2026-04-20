@@ -307,7 +307,8 @@ export const STORAGE_KEYS = {
   PRIVACY_MODE: 'timemachine_privacy_mode',
   LAST_SYNC: 'timemachine_last_sync',
   OFFLINE_SLICES: 'timemachine_offline_slices',
-  PENDING_SLICE_DRAFT: 'timemachine_pending_slice_draft'
+  PENDING_SLICE_DRAFT: 'timemachine_pending_slice_draft',
+  LAST_USER_ID: 'timemachine_last_user_id'
 } as const;
 
 // Pending slice draft type for session timeout recovery

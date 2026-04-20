@@ -43,6 +43,7 @@ export const clearAllUserData = async (): Promise<void> => {
     // (auth token is already cleared by authStore, but let's be thorough)
     const keysToRemove = [
       'timemachine_encryption_key', // Encryption key (redundant but safe)
+      'timemachine_last_user_id', // Last user id (tracks whose cached data exists)
     ];
     
     keysToRemove.forEach(key => {
