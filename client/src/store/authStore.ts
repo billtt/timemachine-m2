@@ -137,13 +137,17 @@ export const useAuthStore = create<AuthStore>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (state?.token) {
-          // Verify token is still valid on app startup
+          // localStorage is the source of truth — it's updated in-place by
+          // the sliding-window renewal interceptor. If it's gone, auth was
+          // cleared externally (logout, etc.); otherwise adopt its value
+          // even if it differs (renewed token).
           const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-          if (token !== state.token) {
-            // Token mismatch, clear auth state
+          if (!token) {
             state.isAuthenticated = false;
             state.user = null;
             state.token = null;
+          } else if (token !== state.token) {
+            state.token = token;
           }
         }
       }

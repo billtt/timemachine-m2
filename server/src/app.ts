@@ -20,7 +20,8 @@ app.use(helmet({
 const corsOptions = {
   origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
+  exposedHeaders: ['X-Renewed-Token']
 };
 app.use(cors(corsOptions));
 

@@ -69,7 +69,19 @@ class ApiService {
 
     // Response interceptor for error handling
     this.api.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        // Sliding-window session renewal: server issues a fresh JWT on every
+        // authenticated request via the X-Renewed-Token header. Persist it so
+        // daily usage keeps the 7-day window rolling forward.
+        const renewed = response.headers?.['x-renewed-token'];
+        if (renewed && typeof renewed === 'string') {
+          const current = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+          if (current !== renewed) {
+            localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, renewed);
+          }
+        }
+        return response;
+      },
       async (error) => {
         if (error.response?.status === 401) {
           this.handleAuthError();

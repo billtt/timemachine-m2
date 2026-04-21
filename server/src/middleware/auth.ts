@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyToken, extractTokenFromHeader } from '../utils/jwt';
+import { verifyToken, extractTokenFromHeader, generateToken } from '../utils/jwt';
 import { User } from '../models/User';
 
 export interface AuthenticatedRequest extends Request {
@@ -42,6 +42,17 @@ export const authenticateToken = async (
       id: decoded.userId,
       username: decoded.username
     };
+
+    // Sliding-window renewal: reissue a fresh 7-day JWT on every
+    // authenticated request and return it via a response header.
+    // The client swaps its stored token in on the response interceptor.
+    try {
+      const renewed = generateToken(user);
+      res.setHeader('X-Renewed-Token', renewed);
+    } catch (err) {
+      // Token renewal is best-effort — never block the request.
+      console.warn('Failed to renew auth token:', err);
+    }
 
     next();
   } catch {
