@@ -45,17 +45,15 @@ const DayHeader: React.FC<DayHeaderProps> = ({
   const openDatePicker = () => {
     const input = dateInputRef.current;
     if (!input) return;
-    const withPicker = input as HTMLInputElement & { showPicker?: () => void };
-    if (typeof withPicker.showPicker === 'function') {
-      try {
-        withPicker.showPicker();
-        return;
-      } catch {
-        // Fall through to focus-based fallback
-      }
+    // showPicker() can silently no-op on some mobile browsers, so always
+    // follow up with focus()/click(): that is what reliably opens the native
+    // picker on iOS, and it is harmless where showPicker() already worked.
+    try {
+      (input as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
+    } catch {
+      // Ignore and rely on the focus fallback below
     }
-    // iOS opens the native picker when a date input receives focus
-    input.focus();
+    input.focus({ preventScroll: true });
     input.click();
   };
 
@@ -91,14 +89,15 @@ const DayHeader: React.FC<DayHeaderProps> = ({
               </span>
             )}
           </div>
-          {/* 1x1px input: never overlays siblings, so it cannot steal taps
-              from the adjacent chevrons on touch devices */}
+          {/* Invisible input: pointer-events-none keeps it from stealing taps
+              from the adjacent chevrons; full-size so browsers treat it as
+              rendered and anchor the picker to the date block */}
           <input
             ref={dateInputRef}
             type="date"
             value={format(selectedDate, 'yyyy-MM-dd')}
             onChange={(e) => e.target.value && onSelectDate(new Date(e.target.value))}
-            className="absolute bottom-0 left-1/2 w-px h-px opacity-0 pointer-events-none"
+            className="absolute inset-0 w-full h-full opacity-0 pointer-events-none"
             aria-hidden="true"
             tabIndex={-1}
           />

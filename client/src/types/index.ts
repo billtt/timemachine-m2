@@ -126,8 +126,10 @@ export interface SliceState {
   total: number;
 }
 
+export type ThemeMode = 'light' | 'dark' | 'system';
+
 export interface UIState {
-  theme: 'light' | 'dark';
+  theme: ThemeMode;
   cardStyle: 'paper' | 'glass';
   sidebarOpen: boolean;
   privacyMode: boolean;

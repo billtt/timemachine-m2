@@ -1,13 +1,21 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { UIState, BeforeInstallPromptEvent } from '../types';
+import { UIState, BeforeInstallPromptEvent, ThemeMode } from '../types';
 import { STORAGE_KEYS } from '../types';
 import { withViewTransition } from '../utils/viewTransition';
+
+// Resolve 'system' against the OS preference and apply the dark class
+const applyThemeToDocument = (theme: ThemeMode) => {
+  const resolved = theme === 'system'
+    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : theme;
+  document.documentElement.classList.toggle('dark', resolved === 'dark');
+};
 
 interface UIStore extends UIState {
   toggleTheme: () => void;
   toggleCardStyle: () => void;
-  setTheme: (theme: 'light' | 'dark') => void;
+  setTheme: (theme: ThemeMode) => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
   togglePrivacyMode: () => void;
@@ -34,16 +42,16 @@ export const useUIStore = create<UIStore>()(
       highlightedSliceId: null,
 
       toggleTheme: () => {
-        const newTheme = get().theme === 'light' ? 'dark' : 'light';
+        // Cycle light -> dark -> system
+        const next: Record<ThemeMode, ThemeMode> = {
+          light: 'dark',
+          dark: 'system',
+          system: 'light'
+        };
+        const newTheme = next[get().theme] || 'light';
         withViewTransition(() => {
           set({ theme: newTheme });
-
-          // Apply theme to document
-          if (newTheme === 'dark') {
-            document.documentElement.classList.add('dark');
-          } else {
-            document.documentElement.classList.remove('dark');
-          }
+          applyThemeToDocument(newTheme);
         });
       },
 
@@ -52,15 +60,11 @@ export const useUIStore = create<UIStore>()(
         withViewTransition(() => set({ cardStyle: newStyle }));
       },
 
-      setTheme: (theme: 'light' | 'dark') => {
-        set({ theme });
-        
-        // Apply theme to document
-        if (theme === 'dark') {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
+      setTheme: (theme: ThemeMode) => {
+        withViewTransition(() => {
+          set({ theme });
+          applyThemeToDocument(theme);
+        });
       },
 
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
@@ -120,11 +124,7 @@ export const useUIStore = create<UIStore>()(
       onRehydrateStorage: () => (state) => {
         if (state) {
           // Apply theme on hydration
-          if (state.theme === 'dark') {
-            document.documentElement.classList.add('dark');
-          } else {
-            document.documentElement.classList.remove('dark');
-          }
+          applyThemeToDocument(state.theme);
         }
       }
     }
@@ -133,6 +133,14 @@ export const useUIStore = create<UIStore>()(
 
 // Set up online/offline listeners
 if (typeof window !== 'undefined') {
+  // Follow OS appearance changes while in system theme mode
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    const { theme } = useUIStore.getState();
+    if (theme === 'system') {
+      withViewTransition(() => applyThemeToDocument('system'));
+    }
+  });
+
   window.addEventListener('online', () => {
     useUIStore.getState().setOnlineStatus(true);
   });

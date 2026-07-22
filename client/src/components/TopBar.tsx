@@ -1,13 +1,14 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import TransitionLink from './TransitionLink';
-import { 
-  Home, 
-  Search, 
-  Settings, 
-  Sun, 
-  Moon, 
-  Eye, 
+import {
+  Home,
+  Search,
+  Settings,
+  Sun,
+  Moon,
+  Monitor,
+  Eye,
   EyeOff,
   ArrowLeft
 } from 'lucide-react';
@@ -94,9 +95,11 @@ const TopBar: React.FC = () => {
             <button
               onClick={toggleTheme}
               className="p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-800 transition-colors"
-              title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+              title={`Theme: ${theme === 'system' ? 'Auto' : theme === 'light' ? 'Light' : 'Dark'} (click to change)`}
             >
-              {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+              {theme === 'light' && <Sun className="w-4 h-4" />}
+              {theme === 'dark' && <Moon className="w-4 h-4" />}
+              {theme === 'system' && <Monitor className="w-4 h-4" />}
             </button>
 
             <button

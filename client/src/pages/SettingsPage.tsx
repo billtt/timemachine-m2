@@ -16,7 +16,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 const SettingsPage: React.FC = () => {
   const { user, logout } = useAuthStore();
-  const { theme, cardStyle, privacyMode, toggleTheme, toggleCardStyle, setPrivacyMode } = useUIStore();
+  const { theme, cardStyle, privacyMode, setTheme, toggleCardStyle, setPrivacyMode } = useUIStore();
   const { pendingSlices, syncPendingSlices } = useOfflineStore();
   const queryClient = useQueryClient();
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -312,10 +312,11 @@ const SettingsPage: React.FC = () => {
             <SegmentedControl
               options={[
                 { value: 'light', label: 'Light' },
-                { value: 'dark', label: 'Dark' }
+                { value: 'dark', label: 'Dark' },
+                { value: 'system', label: 'Auto' }
               ]}
               value={theme}
-              onChange={() => toggleTheme()}
+              onChange={setTheme}
             />
           </div>
 
