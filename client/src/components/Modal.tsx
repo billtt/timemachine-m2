@@ -39,17 +39,17 @@ const Modal: React.FC<ModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+      <div
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity animate-fade-in"
         onClick={onClose}
       />
-      
+
       {/* Modal */}
       <div className="flex min-h-full items-center justify-center p-4">
         <div className={clsx(
-          'relative w-full max-w-md transform overflow-hidden rounded-lg',
-          'bg-white dark:bg-gray-800 shadow-xl transition-all',
-          'animate-fade-in'
+          'relative w-full max-w-md transform overflow-hidden rounded-2xl',
+          'bg-white dark:bg-gray-800 shadow-2xl ring-1 ring-black/5 dark:ring-white/10 transition-all',
+          'animate-slide-up'
         )}>
           {/* Header */}
           {title && (

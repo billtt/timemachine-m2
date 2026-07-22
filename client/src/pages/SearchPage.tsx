@@ -353,7 +353,7 @@ const SearchPage: React.FC = () => {
                 <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
               </button>
             </div>
-            <div className="space-y-4">
+            <div className="timeline space-y-3">
               {allSlices.map((slice: Slice, index: number) => (
                 <div 
                   key={slice.id}

@@ -128,6 +128,7 @@ export interface SliceState {
 
 export interface UIState {
   theme: 'light' | 'dark';
+  cardStyle: 'paper' | 'glass';
   sidebarOpen: boolean;
   privacyMode: boolean;
   isOnline: boolean;

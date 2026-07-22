@@ -89,25 +89,36 @@
   @apply bg-blue-500 text-white;
 }
 
-/* Slice type indicators */
-.slice-work {
-  @apply border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20;
+/* Timeline axis: vertical line connecting slice nodes */
+.timeline {
+  position: relative;
 }
 
-.slice-fun {
-  @apply border-l-4 border-green-500 bg-green-50 dark:bg-green-900/20;
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 14px;
+  bottom: 14px;
+  width: 2px;
+  border-radius: 1px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(209 213 219) 28px,
+    rgb(209 213 219) calc(100% - 28px),
+    transparent
+  );
 }
 
-.slice-gym {
-  @apply border-l-4 border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20;
-}
-
-.slice-reading {
-  @apply border-l-4 border-purple-500 bg-purple-50 dark:bg-purple-900/20;
-}
-
-.slice-other {
-  @apply border-l-4 border-gray-500 bg-gray-50 dark:bg-gray-900/20;
+.dark .timeline::before {
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(55 65 81) 28px,
+    rgb(55 65 81) calc(100% - 28px),
+    transparent
+  );
 }
 
 /* Mobile-first responsive design */
@@ -129,6 +140,20 @@
   }
 }
 
+/* View Transitions (progressive enhancement) */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
 /* Highlight animation for slices */
 .slice-content {
   transition: background-color 0.25s ease-in-out;
@@ -136,4 +161,5 @@
 
 .slice-content.slice-highlighted {
   background-color: rgba(251, 146, 60, 0.2) !important; /* Orange highlight */
+  background-image: none !important; /* Cards use gradient backgrounds */
 }

@@ -1,23 +1,26 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Calendar, RefreshCw, ChevronLeft, ChevronRight, Home } from 'lucide-react';
+import { Plus, Calendar } from 'lucide-react';
 import { format, startOfDay, endOfDay, addDays, subDays } from 'date-fns';
 import toast from 'react-hot-toast';
 import { useUIStore } from '../store/uiStore';
 import { useSearchStore } from '../store/searchStore';
 import { useOfflineStore } from '../store/offlineStore';
 import { useSliceStore } from '../store/sliceStore';
-import { Slice, SliceFormData, STORAGE_KEYS, PendingSliceDraft, ReflectionStatus } from '../types';
+import { Slice, SliceFormData, SliceType, STORAGE_KEYS, PendingSliceDraft, ReflectionStatus } from '../types';
 import apiService from '../services/api';
 import offlineStorage from '../services/offline';
 import { encryptionService } from '../services/encryption';
 import SliceItem from '../components/SliceItem';
+import DayHeader from '../components/DayHeader';
+import DaySummarySidebar from '../components/DaySummarySidebar';
 import SliceForm from '../components/SliceForm';
 import Modal from '../components/Modal';
 import Button from '../components/Button';
 import ReflectionModal, { REFLECTION_EMOJI } from '../components/ReflectionModal';
 import Loading from '../components/Loading';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
+import { withViewTransition } from '../utils/viewTransition';
 import PullToRefresh from '../components/PullToRefresh';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { PAGINATION } from '../../../shared/constants';
@@ -364,21 +367,32 @@ const HomePage: React.FC = () => {
     const sliceDate = new Date(slice.time);
     return sliceDate >= startOfDay(selectedDate) && sliceDate <= endOfDay(selectedDate);
   });
+
+  const typeCounts = useMemo(() => {
+    const counts: Partial<Record<SliceType, number>> = {};
+    for (const slice of displaySlices) {
+      counts[slice.type] = (counts[slice.type] || 0) + 1;
+    }
+    return counts;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slices, selectedDate]);
   
   const isToday = format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
 
   const goToPreviousDay = () => {
-    setSelectedDate(subDays(selectedDate, 1));
+    withViewTransition(() => setSelectedDate(subDays(selectedDate, 1)));
   };
 
   const goToNextDay = () => {
-    setSelectedDate(addDays(selectedDate, 1));
+    withViewTransition(() => setSelectedDate(addDays(selectedDate, 1)));
   };
 
   const goToToday = () => {
-    setSelectedDate(new Date());
-    setIsFromSearch(false); // Clear the return button when clicking Today
-    setHighlightedSliceId(null); // Clear any highlighting
+    withViewTransition(() => {
+      setSelectedDate(new Date());
+      setIsFromSearch(false); // Clear the return button when clicking Today
+      setHighlightedSliceId(null); // Clear any highlighting
+    });
   };
 
   // Mobile detection
@@ -398,68 +412,22 @@ const HomePage: React.FC = () => {
   return (
     <div className={`max-w-4xl mx-auto ${isMobile ? '' : 'space-y-6'}`}>
       {/* Header - Sticky on mobile */}
-      <div className={`flex items-center justify-between ${isMobile ? 'sticky top-0 z-20 px-4 py-2 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700' : ''}`}>
-        <div className="flex items-center space-x-1">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={goToPreviousDay}
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-          <input
-            type="date"
-            value={format(selectedDate, 'yyyy-MM-dd')}
-            onChange={(e) => setSelectedDate(new Date(e.target.value))}
-            className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white"
-          />
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={goToNextDay}
-          >
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-          {!isToday && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={goToToday}
-              title="Go to Today"
-            >
-              <Home className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-        
-        <div className="flex items-center space-x-1">
-          {!isMobile && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={isLoading || isRefreshing}
-              title="Refresh"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading || isRefreshing ? 'animate-spin' : ''}`} />
-            </Button>
-          )}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setShowReflectionModal(true)}
-            title="Daily Reflection"
-          >
-            <span className="text-base leading-none">{REFLECTION_EMOJI[reflectionStatus]}</span>
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => setShowAddModal(true)}
-            title="Add Slice"
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
-        </div>
+      <div className={`${isMobile ? 'sticky top-0 z-20 px-2 py-1.5 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200/80 dark:border-gray-800' : ''}`}>
+        <DayHeader
+          selectedDate={selectedDate}
+          isToday={isToday}
+          isMobile={isMobile}
+          typeCounts={typeCounts}
+          reflectionEmoji={REFLECTION_EMOJI[reflectionStatus]}
+          isRefreshing={isLoading || isRefreshing}
+          onPrev={goToPreviousDay}
+          onNext={goToNextDay}
+          onToday={goToToday}
+          onSelectDate={(date) => withViewTransition(() => setSelectedDate(date))}
+          onReflection={() => setShowReflectionModal(true)}
+          onAdd={() => setShowAddModal(true)}
+          onRefresh={handleRefresh}
+        />
       </div>
 
 
@@ -499,13 +467,15 @@ const HomePage: React.FC = () => {
             </Button>
           </div>
         ) : displaySlices.length === 0 ? (
-          <div className="text-center py-12 px-4 mt-4">
-            <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              No slices yet
+          <div className="text-center py-12 px-4 mt-4 animate-fade-in">
+            <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-gradient-to-br from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-900/10 flex items-center justify-center">
+              <Calendar className="w-9 h-9 text-primary-400 dark:text-primary-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1.5">
+              {isToday ? 'A blank page today' : 'Nothing recorded'}
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              {isToday ? 'Start tracking your day by adding your first slice!' : 'No activity recorded for this date.'}
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-5 max-w-xs mx-auto">
+              {isToday ? 'Capture your first moment of the day.' : 'No activity was recorded for this date.'}
             </p>
             <Button onClick={() => setShowAddModal(true)}>
               <Plus className="w-4 h-4 mr-1" />
@@ -513,7 +483,7 @@ const HomePage: React.FC = () => {
             </Button>
           </div>
         ) : (
-          <div className="space-y-4 px-4 pb-4 mt-4">
+          <div className="timeline space-y-3 mx-4 mb-4 mt-4">
             {displaySlices.map((slice) => {
               const sliceWithStatus = slice as any;
               // Use tempId for stable keys if available, otherwise use slice.id
@@ -538,6 +508,7 @@ const HomePage: React.FC = () => {
         )}
         
         {!isMobile && (
+          <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-6 lg:items-start">
           <div className="space-y-4">
             {/* Offline indicator - Desktop in content */}
             {!isOnline && (
@@ -560,13 +531,15 @@ const HomePage: React.FC = () => {
                 </Button>
               </div>
             ) : displaySlices.length === 0 ? (
-              <div className="text-center py-12">
-                <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  No slices yet
+              <div className="text-center py-12 animate-fade-in">
+                <div className="w-20 h-20 mx-auto mb-5 rounded-full bg-gradient-to-br from-primary-50 to-primary-100 dark:from-primary-900/30 dark:to-primary-900/10 flex items-center justify-center">
+                  <Calendar className="w-9 h-9 text-primary-400 dark:text-primary-500" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1.5">
+                  {isToday ? 'A blank page today' : 'Nothing recorded'}
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  {isToday ? 'Start tracking your day by adding your first slice!' : 'No activity recorded for this date.'}
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-5 max-w-xs mx-auto">
+                  {isToday ? 'Capture your first moment of the day.' : 'No activity was recorded for this date.'}
                 </p>
                 <Button onClick={() => setShowAddModal(true)}>
                   <Plus className="w-4 h-4 mr-1" />
@@ -574,7 +547,7 @@ const HomePage: React.FC = () => {
                 </Button>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="timeline space-y-3">
                 {displaySlices.map((slice) => {
                   const sliceWithStatus = slice as any;
                   // Use tempId for stable keys if available, otherwise use slice.id
@@ -595,8 +568,32 @@ const HomePage: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* Right sidebar - wide screens only */}
+          <div className="hidden lg:block sticky top-20">
+            <DaySummarySidebar
+              typeCounts={typeCounts}
+              total={displaySlices.length}
+              reflectionStatus={reflectionStatus}
+              reflectionEmoji={REFLECTION_EMOJI[reflectionStatus]}
+              onOpenReflection={() => setShowReflectionModal(true)}
+            />
+          </div>
+          </div>
         )}
       </div>
+
+      {/* Floating add button - mobile only */}
+      {isMobile && (
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="fixed right-5 z-30 w-14 h-14 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white shadow-lg shadow-primary-600/40 active:scale-95 transition-transform flex items-center justify-center"
+          style={{ bottom: 'calc(4.5rem + env(safe-area-inset-bottom))' }}
+          title="Add Slice"
+        >
+          <Plus className="w-7 h-7" />
+        </button>
+      )}
 
       {/* Add Slice Modal */}
       <Modal

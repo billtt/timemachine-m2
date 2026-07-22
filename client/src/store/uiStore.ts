@@ -2,9 +2,11 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { UIState, BeforeInstallPromptEvent } from '../types';
 import { STORAGE_KEYS } from '../types';
+import { withViewTransition } from '../utils/viewTransition';
 
 interface UIStore extends UIState {
   toggleTheme: () => void;
+  toggleCardStyle: () => void;
   setTheme: (theme: 'light' | 'dark') => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
@@ -23,6 +25,7 @@ export const useUIStore = create<UIStore>()(
   persist(
     (set, get) => ({
       theme: 'light',
+      cardStyle: 'glass',
       sidebarOpen: false,
       privacyMode: false,
       isOnline: navigator.onLine,
@@ -32,14 +35,21 @@ export const useUIStore = create<UIStore>()(
 
       toggleTheme: () => {
         const newTheme = get().theme === 'light' ? 'dark' : 'light';
-        set({ theme: newTheme });
-        
-        // Apply theme to document
-        if (newTheme === 'dark') {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
+        withViewTransition(() => {
+          set({ theme: newTheme });
+
+          // Apply theme to document
+          if (newTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        });
+      },
+
+      toggleCardStyle: () => {
+        const newStyle = get().cardStyle === 'glass' ? 'paper' : 'glass';
+        withViewTransition(() => set({ cardStyle: newStyle }));
       },
 
       setTheme: (theme: 'light' | 'dark') => {
@@ -104,6 +114,7 @@ export const useUIStore = create<UIStore>()(
       name: 'ui-store',
       partialize: (state) => ({
         theme: state.theme,
+        cardStyle: state.cardStyle,
         privacyMode: state.privacyMode
       }),
       onRehydrateStorage: () => (state) => {

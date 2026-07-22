@@ -5,6 +5,8 @@ import { useUIStore } from '../store/uiStore';
 import { useOfflineStore } from '../store/offlineStore';
 import Button from '../components/Button';
 import Input from '../components/Input';
+import SegmentedControl from '../components/SegmentedControl';
+import Switch from '../components/Switch';
 import { EncryptionSettings } from '../components/EncryptionSettings';
 import ErrorBoundary from '../components/ErrorBoundary';
 import apiService from '../services/api';
@@ -14,7 +16,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 const SettingsPage: React.FC = () => {
   const { user, logout } = useAuthStore();
-  const { theme, privacyMode, toggleTheme, togglePrivacyMode } = useUIStore();
+  const { theme, cardStyle, privacyMode, toggleTheme, toggleCardStyle, setPrivacyMode } = useUIStore();
   const { pendingSlices, syncPendingSlices } = useOfflineStore();
   const queryClient = useQueryClient();
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -307,13 +309,33 @@ const SettingsPage: React.FC = () => {
                 Choose your preferred color scheme
               </p>
             </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={toggleTheme}
-            >
-              {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
-            </Button>
+            <SegmentedControl
+              options={[
+                { value: 'light', label: 'Light' },
+                { value: 'dark', label: 'Dark' }
+              ]}
+              value={theme}
+              onChange={() => toggleTheme()}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                Card Style
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Paper or frosted glass appearance
+              </p>
+            </div>
+            <SegmentedControl
+              options={[
+                { value: 'paper', label: 'Paper' },
+                { value: 'glass', label: 'Glass' }
+              ]}
+              value={cardStyle}
+              onChange={() => toggleCardStyle()}
+            />
           </div>
 
           <div className="flex items-center justify-between">
@@ -325,13 +347,11 @@ const SettingsPage: React.FC = () => {
                 Hide slice content (press Q to toggle)
               </p>
             </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={togglePrivacyMode}
-            >
-              {privacyMode ? 'Disable' : 'Enable'}
-            </Button>
+            <Switch
+              checked={privacyMode}
+              onChange={setPrivacyMode}
+              aria-label="Privacy Mode"
+            />
           </div>
         </div>
       </div>

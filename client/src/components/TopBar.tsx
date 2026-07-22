@@ -1,5 +1,6 @@
 import React from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import TransitionLink from './TransitionLink';
 import { 
   Home, 
   Search, 
@@ -39,13 +40,13 @@ const TopBar: React.FC = () => {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
+    <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200/80 dark:border-gray-800 sticky top-0 z-10">
       <div className="px-4 lg:px-8">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between h-12">
           {/* Left: App Title */}
           <div className="flex-shrink-0">
-            <h1 className="text-lg font-bold text-gray-900 dark:text-white">
+            <h1 className="text-lg font-bold tracking-tight bg-gradient-to-r from-primary-600 via-primary-500 to-violet-500 bg-clip-text text-transparent">
               TimeMachine
             </h1>
           </div>
@@ -61,31 +62,31 @@ const TopBar: React.FC = () => {
                 <ArrowLeft className="w-4 h-4" />
               </button>
             )}
-            <Link
+            <TransitionLink
               to="/"
               onClick={handleHomeClick}
-              className={`p-2 rounded-lg transition-colors ${
-                isActive('/') 
-                  ? 'bg-primary-100 text-primary-600 dark:bg-primary-900 dark:text-primary-400' 
+              className={`hidden md:block p-2 rounded-lg transition-colors ${
+                isActive('/')
+                  ? 'bg-primary-100 text-primary-600 dark:bg-primary-900 dark:text-primary-400'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-800'
               }`}
               title="Timeline"
             >
               <Home className="w-4 h-4" />
-            </Link>
+            </TransitionLink>
 
-            <Link
+            <TransitionLink
               to="/search"
               onClick={handleSearchClick}
-              className={`p-2 rounded-lg transition-colors ${
-                isActive('/search') 
-                  ? 'bg-primary-100 text-primary-600 dark:bg-primary-900 dark:text-primary-400' 
+              className={`hidden md:block p-2 rounded-lg transition-colors ${
+                isActive('/search')
+                  ? 'bg-primary-100 text-primary-600 dark:bg-primary-900 dark:text-primary-400'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-800'
               }`}
               title="Search"
             >
               <Search className="w-4 h-4" />
-            </Link>
+            </TransitionLink>
           </div>
 
           {/* Right: Controls */}
@@ -106,17 +107,17 @@ const TopBar: React.FC = () => {
               {privacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
 
-            <Link
+            <TransitionLink
               to="/settings"
-              className={`p-2 rounded-lg transition-colors ${
-                isActive('/settings') 
-                  ? 'bg-primary-100 text-primary-600 dark:bg-primary-900 dark:text-primary-400' 
+              className={`hidden md:block p-2 rounded-lg transition-colors ${
+                isActive('/settings')
+                  ? 'bg-primary-100 text-primary-600 dark:bg-primary-900 dark:text-primary-400'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-800'
               }`}
               title="Settings"
             >
               <Settings className="w-4 h-4" />
-            </Link>
+            </TransitionLink>
           </div>
           </div>
         </div>
