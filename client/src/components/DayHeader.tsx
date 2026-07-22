@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { format } from 'date-fns';
 import { ChevronLeft, ChevronRight, Undo2, RefreshCw, Plus } from 'lucide-react';
 import { SliceType, SLICE_TYPES } from '../types';
@@ -40,6 +40,24 @@ const DayHeader: React.FC<DayHeaderProps> = ({
   onRefresh
 }) => {
   const countedTypes = SLICE_TYPES.filter((type) => (typeCounts[type] || 0) > 0);
+  const dateInputRef = useRef<HTMLInputElement>(null);
+
+  const openDatePicker = () => {
+    const input = dateInputRef.current;
+    if (!input) return;
+    const withPicker = input as HTMLInputElement & { showPicker?: () => void };
+    if (typeof withPicker.showPicker === 'function') {
+      try {
+        withPicker.showPicker();
+        return;
+      } catch {
+        // Fall through to focus-based fallback
+      }
+    }
+    // iOS opens the native picker when a date input receives focus
+    input.focus();
+    input.click();
+  };
 
   return (
     <div className="flex items-center justify-between gap-2 w-full">
@@ -50,7 +68,13 @@ const DayHeader: React.FC<DayHeaderProps> = ({
         </button>
 
         {/* Date block: click anywhere to open the native date picker */}
-        <div className="relative px-2 py-0.5 min-w-0 text-center cursor-pointer select-none rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={openDatePicker}
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && openDatePicker()}
+          className="relative px-2 py-0.5 min-w-0 text-center cursor-pointer select-none rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        >
           <div className="text-[15px] font-semibold text-gray-900 dark:text-white leading-tight truncate">
             {isToday ? 'Today' : format(selectedDate, 'EEEE')}
           </div>
@@ -67,21 +91,16 @@ const DayHeader: React.FC<DayHeaderProps> = ({
               </span>
             )}
           </div>
+          {/* 1x1px input: never overlays siblings, so it cannot steal taps
+              from the adjacent chevrons on touch devices */}
           <input
+            ref={dateInputRef}
             type="date"
             value={format(selectedDate, 'yyyy-MM-dd')}
             onChange={(e) => e.target.value && onSelectDate(new Date(e.target.value))}
-            onClick={(e) => {
-              // Chrome only opens the picker when the (invisible) calendar icon
-              // is clicked; showPicker() makes the whole block work.
-              try {
-                (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
-              } catch {
-                // Ignore: not allowed outside a user gesture on some browsers
-              }
-            }}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            aria-label="Select date"
+            className="absolute bottom-0 left-1/2 w-px h-px opacity-0 pointer-events-none"
+            aria-hidden="true"
+            tabIndex={-1}
           />
         </div>
 
